@@ -16,6 +16,9 @@ h2 { font-size: 28px; margin: 0 0 20px; }
 .order-btn { background: #8a3b12; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none; white-space: nowrap; }
 .menu-btn { display: none; margin-left: auto; font: inherit; padding: 8px 14px; background: none; border: 1px solid #2b2118; border-radius: 6px; }
 
+@media (max-width: 768px) {
+  .site-header { position: sticky; top: 0; z-index: 10; background: #fffaf3; }
+}
 @media (max-width: 960px) {
   .nav { display: none; }
   .menu-btn { display: block; }

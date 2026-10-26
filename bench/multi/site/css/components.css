@@ -16,6 +16,11 @@
 /* Boxes */
 .box { background: #fff; border: 1px solid #eaddc8; border-radius: 10px; padding: 24px; }
 
+/* Utilities */
+@media (max-width: 600px) {
+  .desktop-only { display: none; }
+}
+
 /* Forms */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 15px; }

@@ -20,6 +20,7 @@ h2 { font-size: 28px; margin: 0 0 20px; }
   .order-btn { display: none; }
 }
 @media (max-width: 768px) {
+  .site-header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; background: #fffaf3; }
   .nav { display: none; }
   .menu-btn { display: block; }
   .order-btn { display: inline-block; }

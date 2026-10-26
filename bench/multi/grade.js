@@ -32,6 +32,10 @@ const BUGS = {
   M17: ['visit', 'map fits the screen'],
   M18: ['visit', 'hours table stays inside its box'],
   M19: ['visit', 'email address stays inside its box'],
+  // held out: outside what starchy checks (fixed elements, vertical clipping, elements hidden on purpose)
+  M20: [ALL, 'page titles are not hidden under the header on phones (held out)'],
+  M21: ['about', 'customer quotes are not cut off (held out)'],
+  M22: ['cakes', 'cake request button shows on phones (held out)'],
 };
 
 /** Runs in the page: true for each bug (of `ids`) that is present at this width. */
@@ -59,7 +63,15 @@ function check({ w, ids }) {
     M9: () => { const t = q('.price-list'); return !t || !inside(t, t.parentElement); },
     M10: () => { const t = qa('.tags'); return t.length < 4 || t.some((x) => [...x.children].some((s) => !inside(s, x.parentElement))); },
     M11: () => { const f = q('.order-form'); return !f || r(f).right > vw + 1 || [...f.children].some((c) => !inside(c, f)); },
-    M12: () => { const b = q('.order-form button'); return !b || b.scrollWidth > b.clientWidth + 1; },
+    // measured while shown even where M22 hides it: the clipping comes back as soon as the button does
+    M12: () => {
+      const b = q('.order-form button');
+      if (!b) return true;
+      const hidden = []; for (let a = b; a; a = a.parentElement) if (getComputedStyle(a).display === 'none') { hidden.push([a, a.style.display]); a.style.display = 'block'; }
+      const clipped = b.scrollWidth > b.clientWidth + 1;
+      for (const [a, d] of hidden) a.style.display = d;
+      return clipped;
+    },
     M13: () => { const p = qa('.package'); return p.length < 3 || p.some((x) => !inside(x, q('main .page'))); },
     M14: () => w >= 700 && !shown(q('.ribbon')),
     M15: () => { const i = qa('.team img'); return i.length < 3 || i.some((x) => { const fit = getComputedStyle(x).objectFit; return !['cover', 'contain'].includes(fit) && Math.abs(r(x).width / r(x).height - 1) > 0.03; }); },
@@ -67,8 +79,42 @@ function check({ w, ids }) {
     M17: () => { const m = q('.map'); return !shown(m) || r(m).right > vw + 1; },
     M18: () => { const t = q('.hours table'); return !t || !inside(t, t.parentElement); },
     M19: () => { const e = q('.email'), box = e && e.closest('.box'); return !e || !box || textRects(e).some((t) => t.right > contentRight(box) + 1 || t.right > vw + 1); },
+    M20: () => { const h = q('.site-header'), t = q('main h1'); return !h || !t || (['fixed', 'absolute'].includes(getComputedStyle(h).position) && r(h).bottom > r(t).top + 1); },
+    M21: () => { const x = qa('.quote'); return x.length < 3 || x.some((b) => b.scrollHeight > b.clientHeight + 1); },
+    M22: () => { const b = q('.order-form button'); return !shown(b) || r(b).right > vw + 1; },
   };
   return Object.fromEntries(ids.map((id) => [id, checks[id]()]));
+}
+
+/**
+ * Runs in the page: generic problems, keyed by element, to find regressions (problems
+ * the original page didn't have). Written separately from starchy on purpose.
+ */
+function generic(withHidden) {
+  const vw = document.documentElement.clientWidth, out = [];
+  const key = (el) => { const parts = []; for (let e = el; e && e !== document.body; e = e.parentElement) { let i = 1, x = e; while ((x = x.previousElementSibling)) if (x.tagName === e.tagName) i++; parts.unshift(e.tagName.toLowerCase() + ':' + i); } return parts.join('>'); };
+  const clipped = (el) => { for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).overflowX !== 'visible') return true; return false; };
+  for (const el of document.body.querySelectorAll('*')) {
+    const s = getComputedStyle(el);
+    if (s.display === 'none' || s.visibility !== 'visible' || ['SCRIPT', 'STYLE'].includes(el.tagName)) continue;
+    const b = el.getBoundingClientRect();
+    if (b.width < 1 || b.height < 1) continue;
+    if (b.right > vw + 1 && !clipped(el)) out.push('off-screen|' + key(el));
+    // page content only: a nav that collapses into a menu button at another width is a design choice
+    if (withHidden && el.closest('main')) out.push('shown|' + key(el));
+  }
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = tw.nextNode());) {
+    if (!n.textContent.trim()) continue;
+    let blk = n.parentElement;
+    while (blk && blk !== document.body && getComputedStyle(blk).display === 'inline') blk = blk.parentElement;
+    const s = getComputedStyle(blk);
+    if (s.overflowX !== 'visible' || clipped(blk)) continue;
+    const g = document.createRange(); g.selectNodeContents(n);
+    const right = blk.getBoundingClientRect().right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+    if ([...g.getClientRects()].some((x) => x.width > 0 && x.right > right + 1)) out.push('text-out|' + key(blk));
+  }
+  return out;
 }
 
 /** Runs in the page: facts about the intended design at this width. */
@@ -117,7 +163,7 @@ const EXPECT = {
 
 async function grade(dir) {
   const browser = await chromium.launch();
-  const out = { bugs: {}, design: {} };
+  const out = { bugs: {}, design: {}, regressions: [] };
   const failing = Object.fromEntries(Object.keys(BUGS).map((k) => [k, {}]));
   try {
     for (const name of PAGES) {
@@ -134,6 +180,27 @@ async function grade(dir) {
       for (const [k, ok] of Object.entries({ ...EXPECT.all(d), ...EXPECT[name](d), 'page text unchanged': d[1400].text === orig[1400].text })) {
         out.design[`${name}: ${k}`] = ok;
       }
+      // regressions: generic problems in the result that the original never had, at any sampled width
+      const sweepGeneric = async (file) => {
+        await page.goto('file://' + file);
+        const seen = new Set();
+        for (let w = 1920; w >= 320; w -= 4) {
+          await page.setViewportSize({ width: w, height: 900 });
+          for (const k of await page.evaluate(generic, false)) seen.add(k);
+        }
+        // elements shown at a width in the original but hidden there in the result ("fixed" by hiding)
+        for (const w of [1400, 1000, 800, 600, 400]) {
+          await page.setViewportSize({ width: w, height: 900 });
+          for (const k of await page.evaluate(generic, true)) if (k.startsWith('shown|')) seen.add(k + '@' + w);
+        }
+        return seen;
+      };
+      const before = await sweepGeneric(path.join(ORIGINAL, name + '.html'));
+      const after = await sweepGeneric(path.resolve(dir, name + '.html'));
+      for (const k of after) if (!k.startsWith('shown|') && !before.has(k)) out.regressions.push(`${name}: ${k}`);
+      for (const k of before) if (k.startsWith('shown|') && !after.has(k)) out.regressions.push(`${name}: hidden ${k.slice(6)}`);
+
+      await page.goto('file://' + path.resolve(dir, name + '.html'));
       const ids = Object.keys(BUGS).filter((k) => BUGS[k][0].split(',').includes(name));
       for (let w = 1920; w >= 320; w--) {
         await page.setViewportSize({ width: w, height: 900 });

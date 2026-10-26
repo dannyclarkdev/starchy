@@ -85,6 +85,7 @@ async function one(run) {
   const summary = {
     id: run.id, model: run.model, arm: run.arm, workspace: ws, exit,
     fixed: graded.fixed, total: Object.keys(graded.bugs).length, bugIds: Object.keys(graded.bugs), designKept: graded.designKept,
+    regressions: (graded.regressions || []).length,
     bugsFixed: Object.entries(graded.bugs).filter(([, b]) => b.fixed).map(([k]) => k),
     designFailures: Object.entries(graded.design).filter(([, ok]) => !ok).map(([k]) => k),
     costUsd: result.total_cost_usd, minutes: Math.round((Date.now() - started) / 6000) / 10, turns: result.num_turns,
@@ -96,7 +97,7 @@ async function one(run) {
   };
   fs.writeFileSync(path.join(dir, 'grade.json'), JSON.stringify(graded, null, 2));
   fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2));
-  console.log(`done   ${run.id}  fixed ${summary.fixed}/${summary.total}  design ${summary.designKept ? 'kept' : 'BROKEN'}  $${(summary.costUsd || 0).toFixed(2)}  ${summary.minutes} min  starchy calls ${summary.starchyCalls}`);
+  console.log(`done   ${run.id}  fixed ${summary.fixed}/${summary.total}  regressions ${summary.regressions}  design ${summary.designKept ? 'kept' : 'BROKEN'}  $${(summary.costUsd || 0).toFixed(2)}  ${summary.minutes} min  starchy calls ${summary.starchyCalls}`);
   return summary;
 }
 
@@ -121,11 +122,11 @@ function report() {
     const g = all.filter((s) => s.model === m && s.arm === a);
     if (!g.length) continue;
     const per = Object.fromEntries(ids.map((b) => [b, g.filter((s) => s.bugsFixed.includes(b)).length]));
-    rows.push(`| ${m} | ${a} | ${g.length} | ${mean(g.map((s) => s.fixed)).toFixed(1)} / ${ids.length} | ${g.filter((s) => s.designKept).length} / ${g.length} | $${mean(g.map((s) => s.costUsd || 0)).toFixed(2)} | ${mean(g.map((s) => s.minutes)).toFixed(1)} | ${mean(g.map((s) => s.turns || 0)).toFixed(0)} | ${k(mean(g.map((s) => s.tokens.output)))} | ${k(mean(g.map((s) => s.tokens.total)))} | ${Object.entries(per).map(([b, n]) => `${b}:${n}`).join(' ')} |`);
+    rows.push(`| ${m} | ${a} | ${g.length} | ${mean(g.map((s) => s.fixed)).toFixed(1)} / ${ids.length} | ${mean(g.map((s) => s.regressions || 0)).toFixed(1)} | ${g.filter((s) => s.designKept).length} / ${g.length} | $${mean(g.map((s) => s.costUsd || 0)).toFixed(2)} | ${mean(g.map((s) => s.minutes)).toFixed(1)} | ${mean(g.map((s) => s.turns || 0)).toFixed(0)} | ${k(mean(g.map((s) => s.tokens.output)))} | ${k(mean(g.map((s) => s.tokens.total)))} | ${Object.entries(per).map(([b, n]) => `${b}:${n}`).join(' ')} |`);
   }
-  const md = ['| Model | Arm | Runs | Bugs fixed (mean) | Design kept | Cost (mean) | Minutes (mean) | Turns (mean) | Output tokens (mean) | All tokens (mean) | Runs that fixed each bug |', '|---|---|---|---|---|---|---|---|---|---|---|', ...rows, '',
-    '| Run | Fixed | Design | Cost | Min | Turns | Input | Output | Cache read | Cache write | starchy calls | Outside reads | Exit |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
-    ...all.sort((a, b) => a.id.localeCompare(b.id)).map((s) => `| ${s.id} | ${s.fixed} | ${s.designKept ? 'kept' : s.designFailures.join('; ')} | $${(s.costUsd || 0).toFixed(2)} | ${s.minutes} | ${s.turns} | ${k(s.tokens.input)} | ${k(s.tokens.output)} | ${k(s.tokens.cacheRead)} | ${k(s.tokens.cacheWrite)} | ${s.starchyCalls} | ${s.outsideReads} | ${s.exit} |`)].join('\n');
+  const md = ['| Model | Arm | Runs | Bugs fixed (mean) | Regressions (mean) | Design kept | Cost (mean) | Minutes (mean) | Turns (mean) | Output tokens (mean) | All tokens (mean) | Runs that fixed each bug |', '|---|---|---|---|---|---|---|---|---|---|---|---|', ...rows, '',
+    '| Run | Fixed | Regressions | Design | Cost | Min | Turns | Input | Output | Cache read | Cache write | starchy calls | Outside reads | Exit |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    ...all.sort((a, b) => a.id.localeCompare(b.id)).map((s) => `| ${s.id} | ${s.fixed} | ${s.regressions ?? '-'} | ${s.designKept ? 'kept' : s.designFailures.join('; ')} | $${(s.costUsd || 0).toFixed(2)} | ${s.minutes} | ${s.turns} | ${k(s.tokens.input)} | ${k(s.tokens.output)} | ${k(s.tokens.cacheRead)} | ${k(s.tokens.cacheWrite)} | ${s.starchyCalls} | ${s.outsideReads} | ${s.exit} |`)].join('\n');
   fs.writeFileSync(path.join(RESULTS, 'summary.md'), md + '\n');
   console.log('\n' + md);
 }
@@ -138,7 +139,7 @@ function report() {
     for (const d of fs.readdirSync(RESULTS).filter((x) => fs.existsSync(path.join(RESULTS, x, 'summary.json')))) {
       const f = path.join(RESULTS, d, 'summary.json'), s = JSON.parse(fs.readFileSync(f, 'utf8'));
       const g = await grade(s.workspace);
-      Object.assign(s, { fixed: g.fixed, designKept: g.designKept, bugsFixed: Object.entries(g.bugs).filter(([, b]) => b.fixed).map(([k]) => k), designFailures: Object.entries(g.design).filter(([, ok]) => !ok).map(([k]) => k) });
+      Object.assign(s, { fixed: g.fixed, designKept: g.designKept, regressions: (g.regressions || []).length, bugsFixed: Object.entries(g.bugs).filter(([, b]) => b.fixed).map(([k]) => k), designFailures: Object.entries(g.design).filter(([, ok]) => !ok).map(([k]) => k) });
       fs.writeFileSync(path.join(RESULTS, d, 'grade.json'), JSON.stringify(g, null, 2));
       fs.writeFileSync(f, JSON.stringify(s, null, 2));
     }
