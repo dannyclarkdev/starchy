@@ -105,7 +105,7 @@ function issueRanges(first, transitions, min, last) {
     done.push({ ...o, issue: atEnd || o.issue, to: min });
   }
   done.push(...smallRanges(transitions));
-  const rank = { 'page-overflow': 0, 'text-overflow': 1, overlap: 2, 'covered-text': 3, 'container-overflow': 4, 'hidden-range': 5, 'small-range': 6, 'text-clipped': 7, 'image-distorted': 8, 'link-wrapped': 9, 'tiny-text': 10 };
+  const rank = { 'page-overflow': 0, 'text-overflow': 1, overlap: 2, 'covered-text': 3, 'hidden-submit': 4, 'container-overflow': 5, 'hidden-range': 6, 'small-range': 7, 'text-clipped': 8, 'text-cut': 9, 'image-distorted': 10, 'link-wrapped': 11, 'tiny-text': 12 };
   return done.sort((a, b) => rank[a.issue.kind] - rank[b.issue.kind] || b.from - a.from);
 }
 

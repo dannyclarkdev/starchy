@@ -282,6 +282,8 @@ const CAUSES = {
   'text-overflow': ['white-space', 'overflow-wrap', 'word-break', 'width', 'max-width', 'font-size'],
   'image-distorted': ['width', 'height', 'max-width', 'max-height', 'aspect-ratio', 'object-fit'],
   'covered-text': ['position', 'top', 'right', 'bottom', 'left', 'inset', 'transform'],
+  'text-cut': ['height', 'max-height', 'overflow', 'overflow-y'],
+  'hidden-submit': ['display', 'visibility'],
 };
 CAUSES['container-overflow'] = CAUSES['page-overflow'];
 
@@ -496,7 +498,7 @@ async function main() {
   if (failed.length) console.log(`  ${failed.length} page${failed.length === 1 ? '' : 's'} could not be checked`);
   console.log(`  report → ${path.join(o.out, 'report.html')}`);
   // 0 problems is not "the page is fine": say what the sweep can't see
-  console.log('  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast.');
+  console.log('  not checked: what fixed bars cover while scrolling, whether an element (other than a submit button) that hides below some width should stay hidden, what images show, color and contrast.');
   const looks = pages.map((p) => p.look).filter(Boolean);
   if (looks.length) {
     const widths = LOOK.filter((w) => w >= o.min && w <= o.max);

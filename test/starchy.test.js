@@ -194,6 +194,7 @@ describe('end to end', { concurrency: true }, () => {
         case '/small-range': return send(200, read('fixture-small-range.html'));
         case '/js-layout': return send(200, read('fixture-js.html'));
         case '/blind': return send(200, read('fixture-blind.html'));
+        case '/hidden': return send(200, read('fixture-hidden.html'));
         // the first load overflows; later loads "fix" it by hiding the image on narrow screens
         case '/evolving': return send(200, `<!doctype html><style>img { display: block; width: 700px; height: 20px }${++evolving > 1 ? ' @media (max-width: 719px) { img { display: none } }' : ''}</style><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="><p>Menu</p>`);
         // every other load adds a banner, like an A/B test
@@ -243,7 +244,7 @@ describe('end to end', { concurrency: true }, () => {
     // each problem is printed with its range, element and detail, then a re-check hint and what the sweep can't see
     assert.match(r.stdout, /845→320px\s+Wrapped link\s+a\.book: "Book now" wraps onto 2 lines/);
     assert.match(r.stdout, /Tiny text\s+span in div\.tags ×3: font-size 11px/);
-    assert.match(r.stdout, /not checked: fixed and sticky elements over content/);
+    assert.match(r.stdout, /not checked: what fixed bars cover while scrolling/);
     // the page at four widths, in tiles short enough to read
     const look = fs.readdirSync(path.join(OUT, 'basic', 'overview'));
     for (const w of [1440, 1024, 768, 390]) assert.ok(look.includes(`home-${w}-1.jpg`), `overview at ${w}px`);
@@ -288,6 +289,18 @@ describe('end to end', { concurrency: true }, () => {
     // two badges over two titles print as one line; the second title is only covered once the cards shrink (643px)
     assert.match(r.stdout, /900→600px\*\s+Covered text\s+span\.price ↔ h3 in div\.card ×2: covers part of "[^"]+" \(and 1 more like it\)\n\s+css: \.price \{ position: absolute; top: 12px; right: 12px \}/);
     assert.match(r.stdout, /\* several separate ranges in this span/);
+  });
+
+  test('finds a fixed bar over the first heading, text cut off at the bottom and a hidden submit button, not the look-alikes', async () => {
+    const r = await cli([base + '/hidden', '--min', '600', '--max', '900', '--short', '--no-screenshots', '--no-overview', '--out', path.join(OUT, 'hidden')]);
+    assert.equal(r.code, 0, r.stderr);
+    const p = fp('hidden').pages[0].runs[0].problems;
+    assert.deepEqual(p.map((x) => [x.kind, x.labels.join(' ↔ '), x.from, x.to]).sort(), [
+      ['covered-text', 'div.topbar ↔ h1 in main', 900, 600],
+      ['hidden-submit', 'span.send ↔ form.signup', 699, 600],
+      ['text-cut', 'blockquote.quote', 900, 600],
+    ], 'the bottom chat button, line-clamp, a cropped image and a form with its button are fine');
+    assert.match(r.stdout, /css: \.signup \.send \{ display: none \} in @media \(max-width: 699px\)/);
   });
 
   test('a second run into the same folder says what the last edit changed; --short leaves out the layout changes', async () => {

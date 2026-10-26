@@ -59,7 +59,7 @@ starchy file:///path/to/starchy/test/fixture.html
 
   16 layout changes · 7 problems (9 elements) · 1.2s
   report → starchy-report/report.html
-  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast.
+  not checked: what fixed bars cover while scrolling, whether an element (other than a submit button) that hides below some width should stay hidden, what images show, color and contrast.
   look: starchy-report/overview/ has the page at 1440, 1024, 768, 390px (fixture-390-1.jpg …). Open a few: starchy can't see everything.
 ```
 
@@ -102,7 +102,9 @@ and after screenshots of every layout change.
 | Escapes container | An element sticks out of its parent's box. |
 | Clipped text | Text is cut off by `overflow: hidden`. |
 | Text overflows | Text runs out of its box: usually a long word, URL or email address, or `white-space: nowrap`. |
-| Covered text | An absolutely positioned box (a badge, ribbon or label) sits on top of another element's text. Boxes that draw nothing, such as a transparent link stretched over a card, are skipped. |
+| Covered text | An absolutely positioned box (a badge, ribbon or label) sits on top of another element's text, or a bar fixed to the top of the screen covers text that scrolling can never reveal. Boxes that draw nothing, such as a transparent link stretched over a card, are skipped. |
+| Text cut off | Text runs past the bottom of a box with a fixed height and `overflow: hidden`. Images cropped this way, and `line-clamp`, are fine. |
+| Hidden submit button | A visible form has no visible submit button at some width. |
 | Stretched image | A photo is drawn at a different shape than it has, with no `object-fit`. SVGs keep their shape and are skipped. |
 | Wrapped link | A link or button label of 5 words or fewer breaks onto 2+ lines. Only a wrap inside one run of text counts, so lines made by `<br>` or by separate elements are not flagged. Links inside running text (an inline link with other text around it) and links inside headings are skipped. |
 | Hidden in a range | An element hides in a middle range of widths but shows on both sides of it, for example a header button hidden to make room for the nav while the phone layout shows it again. |

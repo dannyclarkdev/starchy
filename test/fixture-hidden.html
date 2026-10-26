@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fixed bar, cut-off text and hidden submit fixture</title>
+<style>
+  /*
+   * PLANTED, for testing starchy (sweep 900 → 600px):
+   *  [problem]  .topbar is fixed to the top with no room kept for it: it covers the h1
+   *  [problem]  .quote has a fixed height and overflow: hidden, so its text is cut off
+   *  [problem]  the signup form's button is hidden below 700px
+   *  [fine]     .chat is fixed to the bottom (scrolling reveals what it covers)
+   *  [fine]     .clamp truncates with line-clamp on purpose
+   *  [fine]     .crop crops a tall image (no text cut)
+   *  [fine]     the search form keeps its button
+   */
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+  .topbar { position: fixed; top: 0; left: 0; right: 0; height: 56px; padding: 12px 20px; background: #222; color: #fff; }
+  main { padding: 20px; }
+  .quote { height: 60px; overflow: hidden; width: 300px; border: 1px solid #ccc; margin: 0 0 16px; padding: 8px; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 300px; margin: 0 0 16px; }
+  .crop { height: 60px; width: 200px; overflow: hidden; margin-bottom: 16px; }
+  .crop img { display: block; width: 200px; height: 200px; }
+  @media (max-width: 699px) { .signup .send { display: none; } }
+  .chat { position: fixed; bottom: 0; right: 0; padding: 8px 12px; background: #06c; color: #fff; }
+  main { padding-bottom: 600px; }
+</style>
+</head>
+<body>
+  <div class="topbar">Hearth &amp; Crumb</div>
+  <main>
+    <h1>Our story</h1>
+    <blockquote class="quote"><p>The cardamom buns are the best thing in Portland. We drive in every Saturday morning just for those, and we always buy two.</p></blockquote>
+    <p class="clamp">This summary is clamped to two lines on purpose. It goes on for a while so that the clamp actually has something to cut off at narrow widths.</p>
+    <div class="crop"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" alt=""></div>
+    <form class="signup"><input type="email" aria-label="Email"><span class="send"><button>Join</button></span></form>
+    <form class="search"><input type="search" aria-label="Search"><button type="submit">Search</button></form>
+    <p>More text near the bottom of the screen, where the chat button sits.</p>
+  </main>
+  <a class="chat" href="#chat">Chat with us</a>
+</body>
+</html>

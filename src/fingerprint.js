@@ -11,7 +11,8 @@
  *             ignored, because text reflows at nearly every pixel.
  *  - issues:  things that are almost always bugs (page overflow, overlap,
  *             content escaping its container, clipped or overflowing text,
- *             tiny text, wrapped links, stretched images, covered text).
+ *             tiny text, wrapped links, stretched images, covered or cut-off text,
+ *             hidden submit buttons).
  */
 function fingerprint(opts) {
   const SKIP = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'HEAD', 'TITLE', 'NOSCRIPT',
@@ -293,6 +294,43 @@ function fingerprint(opts) {
       });
       if (hitText) { seen.add(t.u.path); add('covered-text', [c, t.u], `covers part of "${snippet(t.n)}"`); }
     }
+  }
+
+  // 10. a bar fixed to the top of the screen over text at scroll 0: nothing scrolls that text
+  //     into view. Bars at the bottom (cookie notices, chat) only hide what scrolling reveals,
+  //     and a full-screen overlay is a dialog or an open menu.
+  const vh = document.documentElement.clientHeight;
+  for (const c of units.values()) {
+    if (c.cs.position !== 'fixed' || c.r.top > 1 || c.r.height > vh / 2 || parseFloat(c.cs.opacity) <= 0.1 || !draws(c)) continue;
+    const seen = new Set();
+    for (const t of runs) {
+      if (seen.has(t.u.path) || c.el.contains(t.n)) continue;
+      const hitText = t.rects.some((r) => Math.min(r.bottom, c.r.bottom) - Math.max(r.top, c.r.top) > 2 && Math.min(r.right, c.r.right) - Math.max(r.left, c.r.left) > 2);
+      if (hitText) { seen.add(t.u.path); add('covered-text', [c, t.u], `covers part of "${snippet(t.n)}" at the top of the page, where scrolling can't reveal it`); }
+    }
+  }
+
+  // 11. text cut off at the bottom of a box with a fixed height and overflow: hidden. Only text
+  //     counts (a cropped photo is a choice), and line-clamp truncates on purpose.
+  for (const u of units.values()) {
+    if (!['hidden', 'clip'].includes(u.cs.overflowY) || (u.cs.webkitLineClamp && u.cs.webkitLineClamp !== 'none')) continue;
+    const bottom = u.r.bottom - parseFloat(u.cs.borderBottomWidth);
+    const cut = runs.filter((t) => u.el.contains(t.n) && t.rects.some((r) => r.bottom > bottom + 1));
+    if (cut.length) {
+      const px = Math.round(Math.max(...cut.flatMap((t) => t.rects.map((r) => r.bottom))) - bottom);
+      add('text-cut', [u], `text runs ${px}px past the bottom of ${u.label} and is cut off`);
+    }
+  }
+
+  // 12. a visible form whose submit controls are all hidden at this width
+  for (const f of units.values()) {
+    if (f.el.tagName !== 'FORM') continue;
+    const submits = Array.from(f.el.querySelectorAll('button:not([type]), button[type="submit"], input[type="submit"], input[type="image"]'));
+    if (!submits.length || submits.some((b) => b.getClientRects().length && getComputedStyle(b).visibility === 'visible')) continue;
+    // name the element whose own display: none hides the button
+    let h = submits[0];
+    for (let a = h; a && a !== f.el; a = a.parentElement) if (getComputedStyle(a).display === 'none') h = a;
+    add('hidden-submit', [{ path: getPath(h), label: label(h) }, f], `${f.label} has no visible submit button at this width`);
   }
 
   const labels = {};
