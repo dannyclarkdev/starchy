@@ -59,14 +59,17 @@ starchy file:///path/to/starchy/test/fixture.html
 
   16 layout changes · 7 problems (9 elements) · 1.2s
   report → starchy-report/report.html
-  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast. Look at the page as well.
+  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast.
+  look: starchy-report/overview/ has the page at 1440, 1024, 768, 390px (fixture-390-1.jpg …). Open a few: starchy can't see everything.
 ```
 
 Each problem is printed with its width range, the element that causes it, and
 the CSS rule that most likely causes it, with its file and line. The same problem
 on repeated elements, or over several ranges, is printed once. The last line
 lists what the sweep cannot see, so "0 problems" is not the same as
-"the page is fine". `starchy-report/report.html` has the same list, plus before
+"the page is fine". For those things, `overview/` has screenshots of every page
+at 1440, 1024, 768 and 390px, cut into tiles of at most 1500px high so the text
+stays readable. `starchy-report/report.html` has the same list, plus before
 and after screenshots of every layout change.
 
 ## How it works
@@ -157,7 +160,8 @@ sitemap index files. All pages go into one report.
 | `--out` | `starchy-report` | Output folder |
 | `--baseline` | | An earlier `fingerprint.json` to compare against |
 | `--fail-on` | `none` | `problems` or `new` makes starchy exit 1, for CI |
-| `--no-screenshots` | | Faster runs, report without images |
+| `--no-screenshots` | | Faster runs, report without before/after images |
+| `--no-overview` | | Skip the `overview/` screenshots of each page at four widths |
 | `--problem-shots` | | Add a screenshot of each problem at its first failing width, with the element outlined |
 | `--stress` | | Double the text in repeated items (lists, cards, grids) before the sweep, to find layouts that only hold with short content. Button and nav labels stay as they are. |
 | `--storage-state` | | A Playwright storage state file, for pages behind a login. See below. |

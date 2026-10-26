@@ -45,6 +45,7 @@ Usage: starchy <url-or-file>... [options]
   --baseline <file>   compare against an earlier fingerprint.json
   --fail-on <mode>    exit 1 on: none | problems | new  (default none)
   --no-screenshots    skip before/after images (faster)
+  --no-overview       skip the overview images of each page at 1440/1024/768/390px
   --problem-shots     add a screenshot of each problem at its first failing width
   --stress            double the text in repeated items (lists, cards, grids)
                       to find layouts that only hold with short content
@@ -59,7 +60,7 @@ function parseArgs(argv) {
   const o = {
     max: 1920, min: 320, step: 8, heights: [900], dpr: 1, minFont: 12, ignore: [],
     settle: 0, out: 'starchy-report', baseline: null, failOn: 'none', screenshots: true,
-    problemShots: false, stress: false, storageState: null, workers: 0, short: false, urls: [],
+    problemShots: false, overview: true, stress: false, storageState: null, workers: 0, short: false, urls: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], next = () => argv[++i];
@@ -78,6 +79,7 @@ function parseArgs(argv) {
       case '--baseline': o.baseline = next(); break;
       case '--fail-on': o.failOn = next(); break;
       case '--no-screenshots': o.screenshots = false; break;
+      case '--no-overview': o.overview = false; break;
       case '--problem-shots': o.problemShots = true; break;
       case '--stress': o.stress = true; break;
       case '--storage-state': o.storageState = next(); break;
@@ -325,6 +327,31 @@ async function cssSource(page, width, height, selector, kind) {
   }
 }
 
+// widths most people see the page at, for the overview images
+const LOOK = [1440, 1024, 768, 390];
+const TILE = 1500; // px: an image viewer, or a model, shrinks taller images until the text is unreadable
+
+/** Full-page screenshots of `url` at the LOOK widths, cut into tiles, shared out over the loaded copies. */
+async function overview(pages, url, o, used) {
+  const u = new URL(url);
+  let slug = (u.protocol === 'file:' ? path.basename(u.pathname).replace(/\.html?$/i, '') : u.pathname.replace(/^\/+|\/+$/g, '').replace(/[^\w-]+/g, '-')) || 'home';
+  for (let i = 2; used.has(slug); i++) slug = slug.replace(/-\d+$/, '') + '-' + i;
+  used.add(slug);
+  const dir = path.join(o.out, 'overview');
+  const widths = LOOK.filter((w) => w >= o.min && w <= o.max);
+  await Promise.all(pages.map(async (page, i) => {
+    for (const w of widths.filter((_, j) => j % pages.length === i)) {
+      await page.setViewportSize({ width: w, height: o.heights[0] });
+      await settle(page, o.settle);
+      const h = Math.min(await page.evaluate(() => document.documentElement.scrollHeight), 6 * TILE);
+      for (let y = 0, n = 1; y < h; y += TILE, n++) {
+        await page.screenshot({ path: path.join(dir, `${slug}-${w}-${n}.jpg`), type: 'jpeg', quality: 70, fullPage: true, clip: { x: 0, y, width: w, height: Math.min(TILE, h - y) } });
+      }
+    }
+  }));
+  return slug;
+}
+
 /** Load `url` in `page` and get it ready to measure. */
 async function prepare(page, url, o) {
   await page.setViewportSize({ width: o.max, height: o.heights[0] });
@@ -352,7 +379,7 @@ function workerCount(o, url) {
   return Math.max(1, Math.min(local ? 8 : 4, cores, byMemory, byRange));
 }
 
-async function scanPage(context, url, o, shotIds) {
+async function scanPage(context, url, o, shotIds, slugs) {
   const pages = [await context.newPage()];
   try {
     const page = pages[0];
@@ -380,7 +407,8 @@ async function scanPage(context, url, o, shotIds) {
       if (!o.short) console.log(`\n  height ${h}px`);
       runs.push(await sweepHeight(sweepers, h, breakpoints, o, shotIds));
     }
-    return { url, redirectedTo, breakpoints, runs };
+    const look = o.overview ? await overview(sweepers, url, o, slugs) : null;
+    return { url, redirectedTo, breakpoints, runs, look };
   } finally {
     await Promise.all(pages.map((p) => p.close()));
   }
@@ -395,10 +423,12 @@ async function main() {
 
   const urls = await expandSitemaps(context, o.urls);
   if (urls.length > 1) console.log(`starchy: ${urls.length} pages`);
-  const pages = [], failed = [], shotIds = new Set();
+  const pages = [], failed = [], shotIds = new Set(), slugs = new Set();
+  // images from an earlier run of other pages would look like part of this one
+  if (o.overview) { fs.rmSync(path.join(o.out, 'overview'), { recursive: true, force: true }); fs.mkdirSync(path.join(o.out, 'overview'), { recursive: true }); }
   for (const url of urls) {
     try {
-      pages.push(await scanPage(context, url, o, shotIds));
+      pages.push(await scanPage(context, url, o, shotIds, slugs));
     } catch (e) {
       const error = e.message.split('\n')[0];
       console.error(`  skipped ${url}: ${error}`);
@@ -466,7 +496,12 @@ async function main() {
   if (failed.length) console.log(`  ${failed.length} page${failed.length === 1 ? '' : 's'} could not be checked`);
   console.log(`  report → ${path.join(o.out, 'report.html')}`);
   // 0 problems is not "the page is fine": say what the sweep can't see
-  console.log('  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast. Look at the page as well.');
+  console.log('  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast.');
+  const looks = pages.map((p) => p.look).filter(Boolean);
+  if (looks.length) {
+    const widths = LOOK.filter((w) => w >= o.min && w <= o.max);
+    console.log(`  look: ${path.join(o.out, 'overview')}/ has ${looks.length > 1 ? 'every page' : 'the page'} at ${widths.join(', ')}px (${looks[0]}-${widths[widths.length - 1]}-1.jpg …). Open a few: starchy can't see everything.`);
+  } else console.log('  Look at the page as well.');
 
   if (!pages.length) process.exit(1);
   if (o.failOn === 'problems' && unique.length > 0) process.exit(1);

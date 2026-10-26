@@ -244,6 +244,10 @@ describe('end to end', { concurrency: true }, () => {
     assert.match(r.stdout, /845→320px\s+Wrapped link\s+a\.book: "Book now" wraps onto 2 lines/);
     assert.match(r.stdout, /Tiny text\s+span in div\.tags ×3: font-size 11px/);
     assert.match(r.stdout, /not checked: fixed and sticky elements over content/);
+    // the page at four widths, in tiles short enough to read
+    const look = fs.readdirSync(path.join(OUT, 'basic', 'overview'));
+    for (const w of [1440, 1024, 768, 390]) assert.ok(look.includes(`home-${w}-1.jpg`), `overview at ${w}px`);
+    assert.match(r.stdout, /look: \S+overview\/ has the page at 1440, 1024, 768, 390px \(home-390-1\.jpg …\)/);
     // the CSS behind a problem, with its line in the page's <style> block
     assert.match(r.stdout, /Tiny text\s+p in footer: font-size 9px \(min 12px\)\n\s+css: footer p \{ font-size: clamp\(9px, 1\.2vw, 14px\) \} \(\/:57\)/);
   });
@@ -301,11 +305,13 @@ describe('end to end', { concurrency: true }, () => {
   });
 
   test('--workers 1 gives the same result as sweeping several pages at once', async () => {
-    const one = await cli([base + '/', '--workers', '1', '--no-screenshots', '--out', path.join(OUT, 'workers-1')]);
+    const one = await cli([base + '/', '--workers', '1', '--no-screenshots', '--no-overview', '--out', path.join(OUT, 'workers-1')]);
     const many = await cli([base + '/', '--workers', '4', '--no-screenshots', '--out', path.join(OUT, 'workers-4')]);
     assert.equal(one.code, 0, one.stderr);
     assert.equal(many.code, 0, many.stderr);
     assert.doesNotMatch(one.stdout, /pages at a time/);
+    assert.ok(!fs.existsSync(path.join(OUT, 'workers-1', 'overview')), '--no-overview writes no overview');
+    assert.match(one.stdout, /Look at the page as well\./);
     assert.match(many.stdout, /4 pages at a time/);
     const runOf = (name) => fp(name).pages[0].runs[0];
     assert.deepEqual(runOf('workers-4').changes, runOf('workers-1').changes);
