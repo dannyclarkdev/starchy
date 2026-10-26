@@ -100,6 +100,12 @@ describe('smallRanges', () => {
     ]);
     assert.deepEqual(r.map((x) => x.issue.labels[0]), ['div.promo']);
   });
+  test('flags an element hidden in a middle range but shown on both sides of it', () => {
+    const cta = { path: 'a.order', label: 'a.order' };
+    const r = smallRanges([change(900, { hidden: [cta] }), change(700, { shown: [cta] })]);
+    assert.deepEqual(r.map((x) => [x.issue.kind, x.from, x.to, x.issue.detail]), [['hidden-range', 899, 700, 'shown on both sides of this range, hidden for 200px in between']]);
+    assert.equal(smallRanges([change(900, { hidden: [cta] })]).length, 0, 'hidden down to the end of the sweep is a normal mobile layout');
+  });
   test('ignores changes to different containers, and states cut off by the sweep', () => {
     assert.equal(smallRanges([change(800, { regrouped: [rows('div.a', '3', '2+1')] }), change(799, { regrouped: [rows('div.b', '2', '1+1')] })]).length, 0);
     assert.equal(smallRanges([change(800, { regrouped: [rows('div.a', '2+1', '3')] })]).length, 0);
@@ -176,7 +182,7 @@ describe('arguments', () => {
 // ---------- end to end ----------
 
 describe('end to end', { concurrency: true }, () => {
-  let server, base, basic;
+  let server, base, basic, loads = 0, evolving = 0;
 
   before(async () => {
     server = http.createServer((req, res) => {
@@ -186,6 +192,12 @@ describe('end to end', { concurrency: true }, () => {
         case '/': return send(200, read('fixture.html'));
         case '/about': return send(200, read('fixture-about.html'));
         case '/small-range': return send(200, read('fixture-small-range.html'));
+        case '/js-layout': return send(200, read('fixture-js.html'));
+        case '/blind': return send(200, read('fixture-blind.html'));
+        // the first load overflows; later loads "fix" it by hiding the image on narrow screens
+        case '/evolving': return send(200, `<!doctype html><style>img { display: block; width: 700px; height: 20px }${++evolving > 1 ? ' @media (max-width: 719px) { img { display: none } }' : ''}</style><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="><p>Menu</p>`);
+        // every other load adds a banner, like an A/B test
+        case '/varies': return send(200, `<!doctype html><body style="margin:0">${++loads % 2 ? '' : '<div style="padding:20px">Spring sale</div>'}<p style="display:flex;gap:8px"><b>One</b><b>Two</b></p>`);
         case '/login': return send(200, '<!doctype html><title>Log in</title><h1>Log in</h1>');
         case '/private':
           if (/(^|;\s*)session=ok(;|$)/.test(req.headers.cookie || '')) return send(200, read('fixture-about.html'));
@@ -228,6 +240,12 @@ describe('end to end', { concurrency: true }, () => {
     assert.match(text(report), /span in div\.tags ×3/);
     assert.equal((report.match(/<details class="shot">/g) || []).length, 7, 'one screenshot per grouped problem');
     assert.match(r.stdout, /7 problems \(9 elements\)/);
+    // each problem is printed with its range, element and detail, then a re-check hint and what the sweep can't see
+    assert.match(r.stdout, /845→320px\s+Wrapped link\s+a\.book: "Book now" wraps onto 2 lines/);
+    assert.match(r.stdout, /Tiny text\s+span in div\.tags ×3: font-size 11px/);
+    assert.match(r.stdout, /not checked: fixed and sticky elements over content/);
+    // the CSS behind a problem, with its line in the page's <style> block
+    assert.match(r.stdout, /Tiny text\s+p in footer: font-size 9px \(min 12px\)\n\s+css: footer p \{ font-size: clamp\(9px, 1\.2vw, 14px\) \} \(\/:57\)/);
   });
 
   test('flags layouts that only hold for a few px, such as a media-query off-by-one', async () => {
@@ -239,7 +257,67 @@ describe('end to end', { concurrency: true }, () => {
     const promo = find(p, 'small-range', 'div.promo');
     assert.deepEqual(promo.map((x) => [x.from, x.to, x.detail]), [[702, 700, 'visible for only 3px']]);
     assert.equal(p.length, 2, 'the tiles reflow over wide ranges, so they are not flagged');
+    const call = fp('small-range').pages[0].runs[0].problems.filter((x) => x.kind === 'hidden-range');
+    assert.deepEqual(call.map((x) => [x.labels[0], x.from, x.to]), [['div.call', 849, 751]]);
+    assert.match(r.stdout, /Hidden in a range\s+div\.call: shown on both sides/);
+    assert.match(r.stdout, /css: \.call \{ display: none \} in @media \(min-width: 751px\) and \(max-width: 849px\) \(small-range:\d+\)/);
     assert.match(text(html('small-range')), /Small-range layout/);
+  });
+
+  test('waits for resize listeners and ResizeObservers before it measures', async () => {
+    const r = await cli([base + '/js-layout', '--max', '1000', '--min', '600', '--no-screenshots', '--out', path.join(OUT, 'js-layout')]);
+    assert.equal(r.code, 0, r.stderr);
+    // .panel is 60% of (width - 40px body padding): 500.4px at 874px, 499.8px at 873px. `at` is the last width before the change
+    const at = fp('js-layout').pages[0].runs[0].changes.map((c) => c.at);
+    assert.deepEqual(at, [874, 700]);
+  });
+
+  test('finds text running out of its box, stretched images and badges over text, not the look-alikes', async () => {
+    const r = await cli([base + '/blind', '--min', '600', '--max', '900', '--short', '--no-screenshots', '--out', path.join(OUT, 'blind')]);
+    assert.equal(r.code, 0, r.stderr);
+    const p = fp('blind').pages[0].runs[0].problems;
+    assert.deepEqual(find(p, 'text-overflow', 'p.contact').map((x) => x.detail), ['"reservations@averyveryverylongdomainnam…" runs 163px outside p.contact']);
+    assert.deepEqual(p.filter((x) => x.kind === 'image-distorted').map((x) => x.labels[0]), ['img.stretch'], 'object-fit: cover and SVG keep their shape');
+    assert.deepEqual(p.filter((x) => x.kind === 'covered-text').map((x) => x.labels.join(' ↔ ')), ['span.price ↔ h3 in div.card', 'span.price ↔ h3 in div.card'],
+      'the transparent stretched link and the background image cover nothing');
+    assert.equal(p.length, 4);
+    // two badges over two titles print as one line; the second title is only covered once the cards shrink (643px)
+    assert.match(r.stdout, /900→600px\*\s+Covered text\s+span\.price ↔ h3 in div\.card ×2: covers part of "[^"]+" \(and 1 more like it\)\n\s+css: \.price \{ position: absolute; top: 12px; right: 12px \}/);
+    assert.match(r.stdout, /\* several separate ranges in this span/);
+  });
+
+  test('a second run into the same folder says what the last edit changed; --short leaves out the layout changes', async () => {
+    const args = [base + '/evolving', '--workers', '1', '--short', '--min', '600', '--max', '900', '--no-screenshots', '--out', path.join(OUT, 'evolving')];
+    const first = await cli(args);
+    assert.equal(first.code, 0, first.stderr);
+    assert.doesNotMatch(first.stdout, /since last run/);
+    assert.doesNotMatch(first.stdout, /height 900px|\d+px {2}(problem|fluid|breakpoint)/, '--short prints no layout change lines');
+    assert.match(first.stdout, /Horizontal scroll\s+img/);
+    const second = await cli(args);
+    assert.match(second.stdout, /since last run: 1 problem fixed, 0 new/);
+    assert.match(second.stdout, /now hidden: img hides below 720px/);
+    const other = await cli([base + '/blind', ...args.slice(1)]);
+    assert.doesNotMatch(other.stdout, /since last run/, 'a folder reused for another page is not a last run');
+  });
+
+  test('--workers 1 gives the same result as sweeping several pages at once', async () => {
+    const one = await cli([base + '/', '--workers', '1', '--no-screenshots', '--out', path.join(OUT, 'workers-1')]);
+    const many = await cli([base + '/', '--workers', '4', '--no-screenshots', '--out', path.join(OUT, 'workers-4')]);
+    assert.equal(one.code, 0, one.stderr);
+    assert.equal(many.code, 0, many.stderr);
+    assert.doesNotMatch(one.stdout, /pages at a time/);
+    assert.match(many.stdout, /4 pages at a time/);
+    const runOf = (name) => fp(name).pages[0].runs[0];
+    assert.deepEqual(runOf('workers-4').changes, runOf('workers-1').changes);
+    assert.deepEqual(runOf('workers-4').problems, runOf('workers-1').problems);
+  });
+
+  test('a page that renders differently between loads is swept again on one page', async () => {
+    const r = await cli([base + '/varies', '--workers', '2', '--no-screenshots', '--out', path.join(OUT, 'varies')]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /renders differently between loads, so it was swept again on one page/);
+    // one load throughout: the banner never appears or disappears as a layout change
+    assert.equal(fp('varies').pages[0].runs[0].changes.filter((c) => c.hidden.length || c.shown.length).length, 0);
   });
 
   test('--stress doubles repeated text and finds the menu that only holds with short names', async () => {

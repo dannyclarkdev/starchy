@@ -10,6 +10,7 @@
    *  [problem]  .grid: min-width 769px and max-width 767px leave 768px with
    *             neither rule, so the default "2+1" layout shows for 1px
    *  [problem]  .promo: a rule that only matches 700–702px shows it for 3px
+   *  [problem]  .call: hidden at 751–849px by a tablet rule, shown above and below
    *  [fluid]    .tiles wrap with no media query; each layout holds for
    *             hundreds of px, so they are not flagged
    */
@@ -21,6 +22,8 @@
   .grid div, .tiles div { background: #eee; padding: 16px; }
   .promo { display: none; padding: 16px; background: #fe0; }
   @media (min-width: 700px) and (max-width: 702px) { .promo { display: block; } }
+  .call { padding: 16px; background: #def; }
+  @media (min-width: 751px) and (max-width: 849px) { .call { display: none; } }
   .tiles { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; }
   .tiles div { flex: 0 0 200px; }
 </style>
@@ -28,6 +31,7 @@
 <body>
   <div class="grid"><div>One</div><div>Two</div><div>Three</div></div>
   <div class="promo">Spring sale</div>
+  <div class="call">Call to order</div>
   <div class="tiles"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
 </body>
 </html>

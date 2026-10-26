@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JS-driven layout fixture</title>
+<style>
+  /*
+   * PLANTED, for testing starchy's wait after each resize (no media queries):
+   *  [fluid]  a resize listener stacks .bar below 700px
+   *  [fluid]  a ResizeObserver on .panel stacks .cols when the panel is under 500px wide
+   */
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; font: 16px/1.5 system-ui, sans-serif; }
+  .bar, .cols { display: flex; gap: 16px; margin-bottom: 20px; }
+  .bar.stacked, .cols.stacked { flex-direction: column; }
+  .bar div, .cols div { flex: 1; padding: 12px; background: #eee; }
+  .panel { width: 60%; }
+</style>
+</head>
+<body>
+  <div class="bar"><div>One</div><div>Two</div></div>
+  <div class="panel"><div class="cols"><div>Left</div><div>Right</div></div></div>
+  <script>
+    const bar = document.querySelector('.bar');
+    const onResize = () => bar.classList.toggle('stacked', innerWidth < 700);
+    addEventListener('resize', onResize);
+    onResize();
+    const cols = document.querySelector('.cols');
+    new ResizeObserver(([e]) => cols.classList.toggle('stacked', e.contentRect.width < 500)).observe(document.querySelector('.panel'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Text, image and badge fixture</title>
+<style>
+  /*
+   * PLANTED, for testing starchy (sweep 900 → 600px):
+   *  [problem]  .contact: a long email address runs out of its 220px box
+   *  [problem]  .stretch: a 1×1 image drawn at 120×60px
+   *  [problem]  .price badges sit on top of the card titles
+   *  [fine]     .cover-link: a transparent link stretched over a card (a common pattern)
+   *  [fine]     .bg: an image under the text, like a hero background (object-fit: cover)
+   *  [fine]     .fit: a stretched box with object-fit: cover, and a stretched SVG
+   */
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; font: 16px/1.5 system-ui, sans-serif; }
+  .contact { width: 220px; padding: 8px; border: 1px solid #ccc; }
+  .stretch, .fit, .svg { display: block; width: 120px; height: 60px; margin: 8px 0; }
+  .fit { object-fit: cover; }
+  .cards { display: flex; gap: 16px; }
+  .card { position: relative; width: 200px; padding: 12px; border: 1px solid #ccc; }
+  .card h3 { margin: 0; font-size: 18px; }
+  .price { position: absolute; top: 12px; right: 12px; padding: 2px 6px; background: #fe0; }
+  .cover-link { position: absolute; inset: 0; }
+  .hero { position: relative; padding: 24px; }
+  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+</style>
+</head>
+<body>
+  <p class="contact">Email: <a href="mailto:x">reservations@averyveryverylongdomainname.com</a></p>
+  <img class="stretch" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" alt="">
+  <img class="fit" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" alt="">
+  <img class="svg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10'/%3E%3C/svg%3E" alt="">
+  <div class="cards">
+    <div class="card"><h3>Brown Butter Chocolate Chip Cookie</h3><span class="price">$3.75</span></div>
+    <div class="card"><h3>Maine Blueberry Hand Pie Deluxe</h3><span class="price">$5.25</span></div>
+    <div class="card"><h3>Focaccia</h3><p>Olive oil and rosemary.</p><a class="cover-link" href="#focaccia" aria-label="Focaccia"></a></div>
+  </div>
+  <div class="hero"><img class="bg" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" alt=""><h2>Fresh every morning</h2></div>
+</body>
+</html>

@@ -105,7 +105,7 @@ function issueRanges(first, transitions, min, last) {
     done.push({ ...o, issue: atEnd || o.issue, to: min });
   }
   done.push(...smallRanges(transitions));
-  const rank = { 'page-overflow': 0, overlap: 1, 'container-overflow': 2, 'small-range': 3, 'text-clipped': 4, 'link-wrapped': 5, 'tiny-text': 6 };
+  const rank = { 'page-overflow': 0, 'text-overflow': 1, overlap: 2, 'covered-text': 3, 'container-overflow': 4, 'hidden-range': 5, 'small-range': 6, 'text-clipped': 7, 'image-distorted': 8, 'link-wrapped': 9, 'tiny-text': 10 };
   return done.sort((a, b) => rank[a.issue.kind] - rank[b.issue.kind] || b.from - a.from);
 }
 
@@ -115,8 +115,9 @@ const SMALL_RANGE = 5;
 
 /**
  * Container row layouts and element visibility that hold only between two
- * nearby changes. A state that starts at the sweep's max or reaches its min
- * is cut off by the sweep, so it is never flagged.
+ * nearby changes, and elements that hide in a middle range but show on both
+ * sides of it. A state that starts at the sweep's max or reaches its min is
+ * cut off by the sweep, so it is never flagged.
  */
 function smallRanges(transitions) {
   const open = new Map();
@@ -131,6 +132,12 @@ function smallRanges(transitions) {
       done.push({
         from: o.from, to: t.hi,
         issue: { key: 'small-range|' + path, kind: 'small-range', labels: [o.label || path], detail: `${describe(from)} for only ${px}px`, paths: [path] },
+      });
+    } else if (o && k.startsWith('vis|') && o.state === 'hidden' && from === 'hidden') {
+      // e.g. a header button hidden to make room for the nav, while the mobile layout shows it again
+      done.push({
+        from: o.from, to: t.hi,
+        issue: { key: 'hidden-range|' + path, kind: 'hidden-range', labels: [o.label || path], detail: `shown on both sides of this range, hidden for ${px}px in between`, paths: [path] },
       });
     }
     open.set(k, { state: to, from: t.lo, label, t });

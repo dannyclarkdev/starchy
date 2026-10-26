@@ -39,4 +39,24 @@ function compareBaseline(result, base) {
   return { baselineDate: base.generated, newChanges, goneChanges, newProblems, fixedProblems };
 }
 
-module.exports = { compareBaseline };
+/**
+ * What changed since the previous run into the same --out folder: the same
+ * comparison as a baseline, plus elements that now hide somewhere they didn't
+ * (a "fix" that only hides the problem). Null when the sweep options differ.
+ */
+function sinceLast(result, prev) {
+  const keys = ['max', 'min', 'heights', 'stress', 'ignore', 'minFont'];
+  if (!prev.options || keys.some((k) => JSON.stringify(prev.options[k]) !== JSON.stringify(result.options[k]))) return null;
+  // a folder reused for other pages is not a "last run" of these pages
+  const urls = (pages) => (pages || []).map((p) => { try { return new URL(p.url).href; } catch (e) { return p.url; } }).sort().join(' ');
+  if (urls(prev.pages) !== urls(result.pages)) return null;
+  const cmp = compareBaseline(result, prev);
+  const wasHidden = new Set((prev.pages || []).flatMap((p) => p.runs.flatMap((r) => r.changes.flatMap((c) => c.hidden))));
+  const nowHidden = new Set();
+  for (const p of result.pages) for (const r of p.runs) for (const t of r.transitions) {
+    for (const x of t.diff.hidden) if (!wasHidden.has(x.path)) nowHidden.add(`${x.label} hides below ${t.hi}px`);
+  }
+  return { ...cmp, nowHidden: [...nowHidden] };
+}
+
+module.exports = { compareBaseline, sinceLast };

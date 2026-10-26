@@ -47,13 +47,27 @@ starchy file:///path/to/starchy/test/fixture.html
     685px  problem
     …
 
-  16 layout changes · 7 problems (9 elements) · 11.4s
+  problems
+   684→320px    Horizontal scroll   div.card ×2: pushes the page 366px wider than the screen
+                                    css: .pricing .card { flex: 1 0 210px } (fixture.html:47)
+   899→320px    Overlap             div in div.stats ↔ div in div.stats: overlap 130×82px
+                                    css: .stats div + div { margin-left: calc(22vw - 200px) } (fixture.html:40)
+   845→320px    Wrapped link        a.book: "Book now" wraps onto 2 lines
+   1920→320px   Tiny text           span in div.tags ×3: font-size 11px (min 12px)
+                                    css: .tags span { font-size: 11px } (fixture.html:52)
+   …
+
+  16 layout changes · 7 problems (9 elements) · 1.2s
   report → starchy-report/report.html
+  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast. Look at the page as well.
 ```
 
-Open `starchy-report/report.html`. It lists every problem with its width range
-and the element that causes it, then every layout change with before and after
-screenshots.
+Each problem is printed with its width range, the element that causes it, and
+the CSS rule that most likely causes it, with its file and line. The same problem
+on repeated elements, or over several ranges, is printed once. The last line
+lists what the sweep cannot see, so "0 problems" is not the same as
+"the page is fine". `starchy-report/report.html` has the same list, plus before
+and after screenshots of every layout change.
 
 ## How it works
 
@@ -70,7 +84,10 @@ screenshots.
      flex-wrap, auto-fit, or content size, so check that it's intended.
    - **Problem**: something broke at this width.
 4. Continue down to the min width (default 320px), once for each viewport
-   height you list.
+   height you list. On a machine with spare cores, starchy loads a few copies of
+   the page and sweeps one slice of the range on each. Where two slices meet,
+   both copies must give the same fingerprint; if they don't (random or animated
+   content), starchy sweeps that page again on one copy.
 5. Write `report.html` and a `fingerprint.json` you can compare against later.
 
 ## What counts as a problem
@@ -81,7 +98,11 @@ screenshots.
 | Overlap | In-flow sibling elements overlap each other. |
 | Escapes container | An element sticks out of its parent's box. |
 | Clipped text | Text is cut off by `overflow: hidden`. |
+| Text overflows | Text runs out of its box: usually a long word, URL or email address, or `white-space: nowrap`. |
+| Covered text | An absolutely positioned box (a badge, ribbon or label) sits on top of another element's text. Boxes that draw nothing, such as a transparent link stretched over a card, are skipped. |
+| Stretched image | A photo is drawn at a different shape than it has, with no `object-fit`. SVGs keep their shape and are skipped. |
 | Wrapped link | A link or button label of 5 words or fewer breaks onto 2+ lines. Only a wrap inside one run of text counts, so lines made by `<br>` or by separate elements are not flagged. Links inside running text (an inline link with other text around it) and links inside headings are skipped. |
+| Hidden in a range | An element hides in a middle range of widths but shows on both sides of it, for example a header button hidden to make room for the nav while the phone layout shows it again. |
 | Small-range layout | A container's rows, or an element's visibility, hold for only 5px or fewer between two changes. This is usually a media-query off-by-one: `min-width: 769px` next to `max-width: 767px` leaves 768px with neither rule. |
 | Tiny text | Text is below `--min-font` (default 12px). |
 
@@ -140,6 +161,8 @@ sitemap index files. All pages go into one report.
 | `--problem-shots` | | Add a screenshot of each problem at its first failing width, with the element outlined |
 | `--stress` | | Double the text in repeated items (lists, cards, grids) before the sweep, to find layouts that only hold with short content. Button and nav labels stay as they are. |
 | `--storage-state` | | A Playwright storage state file, for pages behind a login. See below. |
+| `--short` | | Print only the problems and the summary, without the list of layout changes |
+| `--workers` | auto | Pages to sweep at once. The default comes from your CPU cores and memory: at most 8, or 4 for remote URLs. `1` sweeps on one page. |
 
 ## In CI
 
@@ -165,6 +188,20 @@ still work.
 | 0 | The run finished, and `--fail-on` did not trigger. |
 | 1 | `--fail-on problems` found a problem, or `--fail-on new` found a new problem or a new layout change. Also: no page loaded, a sitemap could not be read, or an unexpected error occurred (for example, Chromium is not installed). |
 | 2 | Bad arguments: an unknown option, an argument that is not a URL or an existing file, `--min` not below `--max`, or a missing `--storage-state` file. |
+
+## Fix and re-check
+
+Run starchy again into the same `--out` folder after a fix, and it says what the
+fix changed:
+
+```
+  since last run: 4 problems fixed, 0 new
+    now hidden: a.order-btn hides below 541px
+```
+
+"now hidden" lists elements that hide at a width where they used to show. A
+problem that goes away because its element was hidden is often not a real fix.
+The comparison only runs when the sweep options are the same as last time.
 
 ## Pages behind a login
 

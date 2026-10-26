@@ -9,6 +9,10 @@ const KIND = {
   overlap: 'Overlap',
   'container-overflow': 'Escapes container',
   'text-clipped': 'Clipped text',
+  'text-overflow': 'Text overflows',
+  'covered-text': 'Covered text',
+  'image-distorted': 'Stretched image',
+  'hidden-range': 'Hidden in a range',
   'small-range': 'Small-range layout',
   'link-wrapped': 'Wrapped link',
   'tiny-text': 'Tiny text',
@@ -47,7 +51,7 @@ function problemList(groups, empty = 'No problems detected at any width.') {
   const rows = groups.map((g) => `<li>
       <span class="kind k-${g.kind}">${KIND[g.kind]}</span>
       <span class="who">${g.labels.map(code).join(' ↔ ')}${g.count > 1 ? ` <b class="times">×${g.count}</b>` : ''}</span>
-      <span class="detail">${esc(g.detail)}${g.from !== g.to ? ` <span class="at">at ${g.to}px</span>` : ''}${g.urls ? ` · on ${g.urls.length} pages` : ''}</span>
+      <span class="detail">${esc(g.detail)}${g.from !== g.to ? ` <span class="at">at ${g.to}px</span>` : ''}${g.urls ? ` · on ${g.urls.length} pages` : ''}${g.source ? `<br><code>${esc(g.source)}</code>` : ''}</span>
       <span class="range">${g.from === g.to ? g.from + 'px' : `${g.from} → ${g.to}px`}</span>
       ${g.shot ? `<details class="shot"><summary>Screenshot at ${g.from}px</summary><img loading="lazy" src="data:image/jpeg;base64,${g.shot.data}" alt="${esc(KIND[g.kind])} at ${g.from}px"></details>` : ''}
     </li>`);
@@ -205,7 +209,7 @@ code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(
 .warn{background:color-mix(in srgb,var(--amber) 14%,transparent);border-radius:8px;padding:8px 12px;font-size:13px}
 .page-h{font-size:22px;margin-top:48px;padding-top:16px;border-top:1px solid var(--line);word-break:break-all}.problems .kind{justify-self:start}.at{opacity:.75}
 .kind{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
-.k-small-range,.k-text-clipped,.k-link-wrapped,.k-tiny-text{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent)}
+.k-small-range,.k-image-distorted,.k-text-clipped,.k-link-wrapped,.k-tiny-text{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent)}
 .ok{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--green);margin:0}
 .change{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 12px;scroll-margin-top:12px}
 .change header{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -246,4 +250,4 @@ ${pages}
 </main></body></html>`;
 }
 
-module.exports = { renderReport };
+module.exports = { renderReport, KIND };

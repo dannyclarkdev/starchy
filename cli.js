@@ -17,12 +17,13 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { fingerprint, stressText, mediaConditions } = require('./src/fingerprint');
 const { keyOf, parseBreakpoints, diffStates, issueRanges, groupRanges, uniqueProblems } = require('./src/analyze');
-const { renderReport } = require('./src/report');
-const { compareBaseline } = require('./src/baseline');
+const { renderReport, KIND } = require('./src/report');
+const { compareBaseline, sinceLast } = require('./src/baseline');
 
 const HELP = `
 Usage: starchy <url-or-file>... [options]
@@ -49,13 +50,16 @@ Usage: starchy <url-or-file>... [options]
                       to find layouts that only hold with short content
   --storage-state <f> load cookies/storage saved by Playwright, to check pages
                       behind a login. The file holds a live session: never commit it.
+  --short             print only the problems and the summary
+  --workers <n>       pages to sweep at once (default: from CPU cores and memory,
+                      at most 8, or 4 for remote URLs). 1 sweeps on one page.
 `;
 
 function parseArgs(argv) {
   const o = {
     max: 1920, min: 320, step: 8, heights: [900], dpr: 1, minFont: 12, ignore: [],
     settle: 0, out: 'starchy-report', baseline: null, failOn: 'none', screenshots: true,
-    problemShots: false, stress: false, storageState: null, urls: [],
+    problemShots: false, stress: false, storageState: null, workers: 0, short: false, urls: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], next = () => argv[++i];
@@ -77,6 +81,8 @@ function parseArgs(argv) {
       case '--problem-shots': o.problemShots = true; break;
       case '--stress': o.stress = true; break;
       case '--storage-state': o.storageState = next(); break;
+      case '--short': o.short = true; break;
+      case '--workers': o.workers = Math.max(1, parseInt(next(), 10) || 1); break;
       default:
         if (a.startsWith('--')) { console.error('Unknown option ' + a); process.exit(2); }
         o.urls.push(toUrl(a));
@@ -115,8 +121,9 @@ async function expandSitemaps(context, urls) {
 }
 
 async function settle(page, ms) {
-  // two animation frames = style + layout have run after the resize
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  // a task queued from an animation frame runs after that whole frame: resize and
+  // media-query listeners, rAF callbacks, layout and ResizeObserver callbacks
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))));
   if (ms) await page.waitForTimeout(ms);
 }
 
@@ -125,8 +132,8 @@ async function collectBreakpoints(page, context) {
   const texts = out.slice();
   for (const href of blocked) {
     try {
-      const res = await context.request.get(href);
-      const css = await res.text();
+      // Chrome won't let a file:// page read another file's rules, and the request API can't fetch file:// URLs
+      const css = href.startsWith('file:') ? fs.readFileSync(new URL(href), 'utf8') : await (await context.request.get(href)).text();
       const re = /@media([^{]+)\{/g;
       let m;
       while ((m = re.exec(css))) texts.push(m[1]);
@@ -174,9 +181,9 @@ async function shoot(page, width, height, paths, o) {
   return { data: buf.toString('base64'), viewport: width, clipW };
 }
 
-async function sweepHeight(page, height, breakpoints, o, shotIds) {
+/** A cached fingerprint of `page` at a width. */
+function measurer(page, height, o) {
   const cache = new Map();
-  let evals = 0;
   const at = async (w) => {
     if (cache.has(w)) return cache.get(w);
     await page.setViewportSize({ width: w, height });
@@ -185,18 +192,22 @@ async function sweepHeight(page, height, breakpoints, o, shotIds) {
     fp.width = w;
     fp.key = keyOf(fp);
     cache.set(w, fp);
-    evals++;
     return fp;
   };
+  at.cache = cache;
+  return at;
+}
 
+/** Sweep from width `top` down to `bottom` on one page, bisecting each change to the exact pixel. */
+async function sweepRange(at, top, bottom, breakpoints, o) {
   // also stop on both sides of every media-query boundary, so a layout that only
   // lives between two nearby queries can't fall between two steps
   const stops = breakpoints.flatMap((b) => [b.hi, b.hi - 1]);
-  const first = await at(o.max);
+  const first = await at(top);
   const transitions = [];
   let cur = first;
-  while (cur.width > o.min) {
-    const nextW = Math.max(o.min, cur.width - o.step, ...stops.filter((s) => s < cur.width));
+  while (cur.width > bottom) {
+    const nextW = Math.max(bottom, cur.width - o.step, ...stops.filter((s) => s < cur.width));
     const next = await at(nextW);
     if (next.key === cur.key) { cur = next; continue; }
     // bisect to the exact pixel where the layout stops matching `cur`
@@ -206,12 +217,27 @@ async function sweepHeight(page, height, breakpoints, o, shotIds) {
       if ((await at(mid)).key === cur.key) hi = mid; else lo = mid;
     }
     const before = await at(hi), after = await at(lo);
-    const diff = diffStates(before, after, breakpoints, hi);
-    transitions.push({ hi, lo, diff, issuesBefore: before.issues });
-    process.stdout.write(`  ${String(hi).padStart(5)}px  ${diff.category}\n`);
+    transitions.push({ hi, lo, diff: diffStates(before, after, breakpoints, hi), issuesBefore: before.issues });
     cur = after;
   }
+  return { first, last: cur, transitions };
+}
 
+async function sweepHeight(pages, height, breakpoints, o, shotIds) {
+  const ats = pages.map((p) => measurer(p, height, o));
+  // one slice of the width range per page; neighbours measure the width where their slices meet
+  const cuts = ats.map((_, i) => Math.round(o.max - ((o.max - o.min) * i) / ats.length)).concat(o.min);
+  let parts = await Promise.all(ats.map((at, i) => sweepRange(at, cuts[i], cuts[i + 1], breakpoints, o)));
+  if (parts.some((part, i) => i && part.first.key !== parts[i - 1].last.key)) {
+    // A/B tests, random content…: slices from different loads can't be joined
+    console.log('  warning: this page renders differently between loads, so it was swept again on one page.\n           If it has animated or random content, --ignore that part to keep the faster parallel sweep.');
+    parts = [await sweepRange(ats[0], o.max, o.min, breakpoints, o)];
+  }
+  const first = parts[0].first, cur = parts[parts.length - 1].last;
+  const transitions = parts.flatMap((part) => part.transitions);
+  if (!o.short) for (const t of transitions) process.stdout.write(`  ${String(t.hi).padStart(5)}px  ${t.diff.category}\n`);
+
+  const page = pages[0];
   if (o.screenshots) {
     for (const t of transitions) {
       const d = t.diff;
@@ -235,44 +261,136 @@ async function sweepHeight(page, height, breakpoints, o, shotIds) {
     }
   }
 
+  // an overlap's cause can sit on either element of the pair
+  for (const g of problems) for (const sel of g.paths.slice(0, 2)) g.source = g.source || await cssSource(page, g.from, height, sel, g.kind);
+
+  const evals = ats.reduce((n, at) => n + at.cache.size, 0);
   return { height, first: { width: first.width, issues: first.issues }, transitions, ranges, problems, evals };
 }
 
-async function scanPage(context, url, o, shotIds) {
-  const page = await context.newPage();
+// the properties that usually cause each kind of problem
+const CAUSES = {
+  'page-overflow': ['width', 'min-width', 'flex', 'flex-basis', 'flex-shrink', 'white-space', 'grid-template-columns', 'margin', 'margin-left', 'margin-right', 'left', 'right', 'transform'],
+  overlap: ['margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right', 'transform', 'top', 'bottom', 'left', 'right', 'position'],
+  'text-clipped': ['white-space', 'text-overflow', 'overflow', 'overflow-x', 'width', 'max-width', 'height', 'flex', 'flex-basis'],
+  'link-wrapped': ['width', 'max-width', 'flex', 'flex-basis', 'white-space'],
+  'tiny-text': ['font-size', 'font'],
+  'small-range': ['grid-template-columns', 'display', 'flex-direction', 'flex-wrap', 'flex'],
+  'hidden-range': ['display', 'visibility'],
+  'text-overflow': ['white-space', 'overflow-wrap', 'word-break', 'width', 'max-width', 'font-size'],
+  'image-distorted': ['width', 'height', 'max-width', 'max-height', 'aspect-ratio', 'object-fit'],
+  'covered-text': ['position', 'top', 'right', 'bottom', 'left', 'inset', 'transform'],
+};
+CAUSES['container-overflow'] = CAUSES['page-overflow'];
+
+/**
+ * The CSS that most likely causes a problem, e.g. `.hero-img { width: 560px } (style.css:30)`:
+ * the winning declarations of the relevant properties, from DevTools' matched rules at that width.
+ */
+async function cssSource(page, width, height, selector, kind) {
+  if (!CAUSES[kind] || !selector) return null;
+  const cdp = await page.context().newCDPSession(page);
   try {
-    console.log(`\nstarchy ${url}\n  widths ${o.max}→${o.min}px, heights ${o.heights.join(', ')}px`);
-    await page.setViewportSize({ width: o.max, height: o.heights[0] });
-    const res = await page.goto(url, { waitUntil: 'load' });
-    if (res && res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
-    // pages with live connections (payment widgets, chat, analytics) never go network-idle
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.setViewportSize({ width, height });
+    await settle(page, 0);
+    const sheets = new Map();
+    cdp.on('CSS.styleSheetAdded', (e) => sheets.set(e.header.styleSheetId, e.header));
+    await cdp.send('DOM.enable');
+    await cdp.send('CSS.enable');
+    const { root } = await cdp.send('DOM.getDocument', { depth: 0 });
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
+    if (!nodeId) return null;
+    const { matchedCSSRules = [], inlineStyle } = await cdp.send('CSS.getMatchedStylesForNode', { nodeId });
+    // highest precedence first: the style attribute, then rules in reverse order
+    const rules = [...(inlineStyle ? [{ style: inlineStyle, inline: true }] : []),
+      ...matchedCSSRules.map((m) => m.rule).filter((r) => r.origin === 'regular').reverse()];
+    const seen = new Set(), found = [];
+    for (const r of rules) {
+      // `range` marks a declaration written in the source (not a longhand implied by a shorthand)
+      const decls = (r.style.cssProperties || []).filter((d) => d.range && !d.disabled && CAUSES[kind].includes(d.name) && !seen.has(d.name));
+      if (!decls.length) continue;
+      decls.forEach((d) => seen.add(d.name));
+      const h = sheets.get(r.style.styleSheetId);
+      const file = h && h.sourceURL && (path.basename(new URL(h.sourceURL).pathname) || new URL(h.sourceURL).pathname);
+      const where = file ? ` (${file}:${h.startLine + decls[0].range.startLine + 1})` : '';
+      const media = r.media && r.media.length ? ` in @media ${r.media[0].text}` : '';
+      found.push(`${r.inline ? 'style=""' : r.selectorList.text} { ${decls.map((d) => `${d.name}: ${d.value}`).join('; ')} }${media}${where}`);
+      if (found.length === 2) break;
+    }
+    return found.join(', ') || null;
+  } catch (e) {
+    return null; // a source hint is a bonus: never fail the run over it
+  } finally {
+    await cdp.detach().catch(() => {});
+  }
+}
+
+/** Load `url` in `page` and get it ready to measure. */
+async function prepare(page, url, o) {
+  await page.setViewportSize({ width: o.max, height: o.heights[0] });
+  const res = await page.goto(url, { waitUntil: 'load' });
+  if (res && res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
+  // pages with live connections (payment widgets, chat, analytics) never go network-idle; a local file has nothing to wait for
+  if (!url.startsWith('file:')) await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.evaluate(() => document.fonts && document.fonts.ready);
+  const stressed = o.stress ? await page.evaluate(stressText) : 0;
+  // freeze animations/transitions so they can't masquerade as layout changes
+  await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}' });
+  return stressed;
+}
+
+/** How many copies of the page to sweep at once. */
+function workerCount(o, url) {
+  if (o.workers) return o.workers;
+  const cores = (os.availableParallelism ? os.availableParallelism() : os.cpus().length) - 1;
+  // one page per 2 GB: os.freemem() leaves out the file cache, so on macOS it reports almost nothing
+  const byMemory = Math.floor(os.totalmem() / 2e9);
+  // each copy of a remote page is a full page load on someone's server
+  const local = /^(file:|https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$))/.test(url);
+  // slices under 100px aren't worth a page load
+  const byRange = Math.floor((o.max - o.min) / 100);
+  return Math.max(1, Math.min(local ? 8 : 4, cores, byMemory, byRange));
+}
+
+async function scanPage(context, url, o, shotIds) {
+  const pages = [await context.newPage()];
+  try {
+    const page = pages[0];
+    const workers = workerCount(o, url);
+    console.log(`\nstarchy ${url}\n  widths ${o.max}→${o.min}px, heights ${o.heights.join(', ')}px${workers > 1 ? `, ${workers} pages at a time` : ''}`);
+    const stressed = await prepare(page, url, o);
     // a login redirect (e.g. an expired --storage-state session) would otherwise be checked silently
     const redirectedTo = new URL(page.url()).href !== new URL(url).href ? page.url() : null;
     if (redirectedTo) console.log(`  warning: redirected to ${redirectedTo}`);
-    await page.evaluate(() => document.fonts && document.fonts.ready);
-    if (o.stress) console.log(`  stress: doubled ${await page.evaluate(stressText)} text runs in repeated items`);
-    // freeze animations/transitions so they can't masquerade as layout changes
-    await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}' });
+    if (o.stress) console.log(`  stress: doubled ${stressed} text runs in repeated items`);
 
     const breakpoints = await collectBreakpoints(page, context);
     console.log(`  media-query breakpoints found: ${breakpoints.map((b) => b.hi).join(', ') || 'none'}`);
 
+    // extra copies that fail to load (rate limits…) are dropped; the sweep just uses fewer pages
+    const extra = await Promise.all(Array.from({ length: workers - 1 }, async () => {
+      const p = await context.newPage();
+      pages.push(p);
+      try { await prepare(p, url, o); return p; } catch (e) { return null; }
+    }));
+    const sweepers = [page, ...extra.filter(Boolean)];
+
     const runs = [];
     for (const h of o.heights) {
-      console.log(`\n  height ${h}px`);
-      runs.push(await sweepHeight(page, h, breakpoints, o, shotIds));
+      if (!o.short) console.log(`\n  height ${h}px`);
+      runs.push(await sweepHeight(sweepers, h, breakpoints, o, shotIds));
     }
     return { url, redirectedTo, breakpoints, runs };
   } finally {
-    await page.close();
+    await Promise.all(pages.map((p) => p.close()));
   }
 }
 
 async function main() {
   const o = parseArgs(process.argv.slice(2));
   const started = Date.now();
-  const browser = await chromium.launch();
+  // no 60fps cap: each width waits for one frame, so frames are most of the sweep time
+  const browser = await chromium.launch({ args: ['--disable-frame-rate-limit', '--disable-gpu-vsync'] });
   const context = await browser.newContext({ deviceScaleFactor: o.dpr, storageState: o.storageState || undefined });
 
   const urls = await expandSitemaps(context, o.urls);
@@ -297,6 +415,12 @@ async function main() {
 
   let comparison = null;
   if (o.baseline) comparison = compareBaseline(result, JSON.parse(fs.readFileSync(o.baseline, 'utf8')));
+  // re-running into the same folder (fix, re-check, fix…) shows what the last edit changed
+  let since = null;
+  const lastPath = path.join(o.out, 'fingerprint.json');
+  if (!o.baseline && fs.existsSync(lastPath)) {
+    try { since = sinceLast(result, JSON.parse(fs.readFileSync(lastPath, 'utf8'))); } catch (e) { /* unreadable: treat as a first run */ }
+  }
 
   fs.mkdirSync(o.out, { recursive: true });
   const fingerprintJson = toFingerprint(result);
@@ -306,9 +430,43 @@ async function main() {
   const changes = pages.reduce((n, p) => n + p.runs.reduce((m, r) => m + r.transitions.length, 0), 0);
   const unique = uniqueProblems(pages);
   const elements = unique.reduce((n, g) => n + g.count, 0);
+  // the element and range for each problem, so nobody has to open the report or parse fingerprint.json to act on it
+  if (unique.length) console.log('\n  problems');
+  // one line per element pair and kind: the same badge over six titles, or a tag row that escapes at
+  // four separate ranges, is one thing to fix
+  const lines = [];
+  let starred = false;
+  for (const g of unique) {
+    const k = [g.kind, g.labels.join('|'), g.height, g.urls.join(' ')].join('#');
+    const same = lines.find((x) => x.k === k);
+    if (same) { same.more.push(g); continue; }
+    lines.push({ k, g, more: [] });
+  }
+  for (const { g: first, more } of lines) {
+    const all = [first, ...more];
+    const g = { ...first, count: all.reduce((n, x) => n + x.count, 0), detail: first.detail + (more.length ? ` (and ${more.length} more like it)` : '') };
+    const split = new Set(all.map((x) => x.from + '-' + x.to)).size > 1;
+    const span = `${Math.max(...all.map((x) => x.from))}→${Math.min(...all.map((x) => x.to))}px${split ? '*' : ''}`;
+    if (split) starred = true;
+    // a local file by its name, a site page by its path: the full URL on every line is just noise
+    const short = (u) => { const x = new URL(u); return x.protocol === 'file:' ? path.basename(x.pathname) : x.pathname + x.search; };
+    const where = [pages.length > 1 && (g.urls.length > 1 ? `${g.urls.length} pages` : short(g.urls[0])), o.heights.length > 1 && `${g.height}px tall`].filter(Boolean).join(', ');
+    console.log(`   ${span.padEnd(12)} ${KIND[g.kind].padEnd(19)} ${g.labels.join(' ↔ ')}${g.count > 1 ? ` ×${g.count}` : ''}: ${g.detail}${where ? ` (${where})` : ''}`);
+    if (g.source) console.log(`                ${' '.repeat(19)} css: ${g.source}`);
+  }
+  if (starred) console.log('   * several separate ranges in this span: the report lists each one');
+  if (since) {
+    const fixed = new Set(since.fixedProblems.map((x) => x.key)).size, added = since.newProblems.length;
+    const moved = since.newChanges.length + since.goneChanges.length;
+    console.log(`\n  since last run: ${fixed} problem${fixed === 1 ? '' : 's'} fixed, ${added} new${moved ? `, ${moved} layout change${moved === 1 ? '' : 's'} moved, added or removed` : ''}`);
+    for (const x of since.newProblems) console.log(`    new: ${KIND[x.kind]} on ${x.labels.join(' ↔ ')} at ${x.from}→${x.to}px`);
+    for (const x of since.nowHidden) console.log(`    now hidden: ${x}`);
+  }
   console.log(`\n  ${pages.length > 1 ? pages.length + ' pages · ' : ''}${changes} layout changes · ${unique.length} problem${unique.length === 1 ? '' : 's'}${elements > unique.length ? ` (${elements} elements)` : ''} · ${result.seconds}s`);
   if (failed.length) console.log(`  ${failed.length} page${failed.length === 1 ? '' : 's'} could not be checked`);
   console.log(`  report → ${path.join(o.out, 'report.html')}`);
+  // 0 problems is not "the page is fine": say what the sweep can't see
+  console.log('  not checked: fixed and sticky elements over content, whether an element that hides below some width should stay hidden, what images show, color and contrast. Look at the page as well.');
 
   if (!pages.length) process.exit(1);
   if (o.failOn === 'problems' && unique.length > 0) process.exit(1);

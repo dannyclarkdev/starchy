@@ -10,7 +10,8 @@
  *             elements like img/svg/button). Inline text runs are deliberately
  *             ignored, because text reflows at nearly every pixel.
  *  - issues:  things that are almost always bugs (page overflow, overlap,
- *             content escaping its container, clipped text, tiny text).
+ *             content escaping its container, clipped or overflowing text,
+ *             tiny text, wrapped links, stretched images, covered text).
  */
 function fingerprint(opts) {
   const SKIP = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'HEAD', 'TITLE', 'NOSCRIPT',
@@ -227,6 +228,71 @@ function fingerprint(opts) {
       lines = Math.max(lines, tops.filter((t, i) => i === 0 || t - tops[i - 1] > half).length);
     }
     if (lines > 1) add('link-wrapped', [{ path: getPath(el), label: label(el) }], `"${text}" wraps onto ${lines} lines`);
+  }
+
+  // text runs, each with the layout unit that lays it out (inline elements aren't units)
+  const runs = [];
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = tw.nextNode());) {
+    if (!n.textContent.trim() || (ignored.length && ignored.some((ig) => ig.contains(n)))) continue;
+    let a = n.parentElement;
+    while (a && a !== document.body && !units.has(a)) a = a.parentElement;
+    if (!a || !units.has(a)) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
+    if (rects.length) runs.push({ n, u: units.get(a), rects });
+  }
+  const snippet = (n) => { const t = n.textContent.trim().replace(/\s+/g, ' '); return t.length > 40 ? t.slice(0, 39) + '…' : t; };
+
+  // 7. text running out of its box (a long word, URL or email, or nowrap text). Inline text
+  //    isn't a unit, so the overflow checks above can't see it, even when it widens the page.
+  const textOver = new Set();
+  for (const t of runs) {
+    const u = t.u;
+    if (textOver.has(u.path) || u.cs.overflowX !== 'visible' || clippedByAncestor(u.el)) continue;
+    const inner = u.r.right - parseFloat(u.cs.paddingRight) - parseFloat(u.cs.borderRightWidth);
+    const over = Math.max(...t.rects.map((r) => r.right)) - inner;
+    if (over > 1) {
+      textOver.add(u.path);
+      const word = t.n.textContent.trim().split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
+      add('text-overflow', [u], `"${word.length > 40 ? word.slice(0, 39) + '…' : word}" runs ${Math.round(over)}px outside ${u.label}`);
+    }
+  }
+
+  // 8. raster images drawn at a different shape than they are. SVG keeps its own aspect
+  //    ratio inside an <img>, and object-fit cover/contain/none never stretch.
+  for (const u of units.values()) {
+    const img = u.el;
+    if (img.tagName !== 'IMG' || !img.complete || !img.naturalWidth || !img.naturalHeight) continue;
+    if (/\.svg([?#]|$)|^data:image\/svg/i.test(img.currentSrc || img.src) || !['fill', 'scale-down'].includes(u.cs.objectFit)) continue;
+    const w = img.clientWidth - parseFloat(u.cs.paddingLeft) - parseFloat(u.cs.paddingRight);
+    const h = img.clientHeight - parseFloat(u.cs.paddingTop) - parseFloat(u.cs.paddingBottom);
+    if (w < 8 || h < 8) continue;
+    if (Math.abs((w / h) / (img.naturalWidth / img.naturalHeight) - 1) > 0.03) {
+      add('image-distorted', [u], `drawn at ${Math.round(w)}×${Math.round(h)}px, the image is ${img.naturalWidth}×${img.naturalHeight}`);
+    }
+  }
+
+  // 9. an absolutely positioned box (badge, ribbon, label) drawn over another element's text.
+  //    Media is left out (usually a background under the text), and so are boxes that draw
+  //    nothing (a transparent link stretched over a card).
+  const MEDIA = new Set(['IMG', 'SVG', 'VIDEO', 'CANVAS', 'IFRAME', 'OBJECT', 'EMBED', 'PICTURE']);
+  const draws = (u) => u.el.textContent.trim() || !/^(transparent|rgba\(.*,\s*0\))$/.test(u.cs.backgroundColor) ||
+    u.cs.backgroundImage !== 'none' || parseFloat(u.cs.borderTopWidth) > 0;
+  const covers = Array.from(units.values()).filter((u) => u.cs.position === 'absolute' && !MEDIA.has(u.el.tagName.toUpperCase()) &&
+    parseFloat(u.cs.opacity) > 0.1 && draws(u));
+  for (const c of covers) {
+    const seen = new Set();
+    for (const t of runs) {
+      // its own text, or text of a box it sits inside of, is a design choice
+      if (seen.has(t.u.path) || c.el.contains(t.n) || t.u.el.contains(c.el)) continue;
+      const hitText = t.rects.some((r) => {
+        const ix = Math.min(r.right, c.r.right) - Math.max(r.left, c.r.left), iy = Math.min(r.bottom, c.r.bottom) - Math.max(r.top, c.r.top);
+        return ix > 2 && iy > 2 && ix * iy > 16;
+      });
+      if (hitText) { seen.add(t.u.path); add('covered-text', [c, t.u], `covers part of "${snippet(t.n)}"`); }
+    }
   }
 
   const labels = {};
