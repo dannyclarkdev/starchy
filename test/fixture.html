@@ -15,6 +15,7 @@
    *  [problem]    .stats second item gets negative margin as the screen narrows → overlap
    *  [problem]    .cta has overflow:hidden + nowrap → text gets clipped
    *  [problem]    footer text uses vw sizing → drops below 12px
+   *  [problem]    header .book link has no nowrap → label breaks onto 2 lines
    */
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #222; }
@@ -22,6 +23,7 @@
   .logo { font-weight: 700; font-size: 20px; white-space: nowrap; }
   nav { display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: flex-end; }
   nav a { color: #fff; text-decoration: none; white-space: nowrap; display: block; }
+  .book { padding: 8px 14px; background: #f59f00; color: #1d2a3a; border-radius: 6px; text-decoration: none; text-align: center; }
 
   .layout { display: flex; gap: 24px; padding: 24px; }
   aside { flex: 0 0 240px; background: #f2f4f7; padding: 16px; border-radius: 8px; }
@@ -55,6 +57,7 @@
       <a href="#">Interior</a><a href="#">Exterior</a><a href="#">Cabinets</a>
       <a href="#">Commercial</a><a href="#">Gallery</a><a href="#">Free Estimate</a>
     </nav>
+    <a class="book" href="#">Book now</a>
   </header>
 
   <div class="layout">

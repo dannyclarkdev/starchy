@@ -104,7 +104,7 @@ function issueRanges(first, transitions, min, last) {
     const atEnd = last && last.issues.find((y) => y.key === o.issue.key);
     done.push({ ...o, issue: atEnd || o.issue, to: min });
   }
-  const rank = { 'page-overflow': 0, overlap: 1, 'container-overflow': 2, 'text-clipped': 3, 'tiny-text': 4 };
+  const rank = { 'page-overflow': 0, overlap: 1, 'container-overflow': 2, 'text-clipped': 3, 'link-wrapped': 4, 'tiny-text': 5 };
   return done.sort((a, b) => rank[a.issue.kind] - rank[b.issue.kind] || b.from - a.from);
 }
 

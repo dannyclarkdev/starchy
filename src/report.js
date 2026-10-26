@@ -9,6 +9,7 @@ const KIND = {
   overlap: 'Overlap',
   'container-overflow': 'Escapes container',
   'text-clipped': 'Clipped text',
+  'link-wrapped': 'Wrapped link',
   'tiny-text': 'Tiny text',
 };
 const CAT = {
@@ -177,7 +178,7 @@ code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(
 .problems .range{grid-column:3;grid-row:1;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
 .problems .more{display:block;color:var(--muted)}.problems .kind{justify-self:start}.at{opacity:.75}
 .kind{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
-.k-text-clipped,.k-tiny-text{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent)}
+.k-text-clipped,.k-link-wrapped,.k-tiny-text{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent)}
 .ok{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--green);margin:0}
 .change{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 12px;scroll-margin-top:12px}
 .change header{display:flex;align-items:center;justify-content:space-between;gap:10px}

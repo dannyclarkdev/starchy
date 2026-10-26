@@ -207,6 +207,28 @@ function fingerprint(opts) {
     }
   }
 
+  // 6. short link/button labels broken onto 2+ lines. Skips links in running text and
+  //    headings, and only counts wrapping inside one text node, so <br>/block lines pass.
+  for (const el of document.body.querySelectorAll('a[href], button, [role="button"]')) {
+    if (ignored.length && ignored.some((ig) => ig.contains(el))) continue;
+    const text = el.textContent.trim().replace(/\s+/g, ' ');
+    if (!text || text.split(' ').length > 5 || el.closest('h1, h2, h3, h4, h5, h6')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility !== 'visible' || el.getClientRects().length === 0) continue;
+    if (cs.display === 'inline' && el.parentElement && el.parentElement.textContent.trim().replace(/\s+/g, ' ') !== text) continue;
+    let lines = 0;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = walker.nextNode());) {
+      if (!n.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const tops = Array.from(range.getClientRects(), (r) => (r.width > 0 ? r.top : null)).filter((t) => t !== null).sort((a, b) => a - b);
+      const half = parseFloat(getComputedStyle(n.parentElement).fontSize) / 2;
+      lines = Math.max(lines, tops.filter((t, i) => i === 0 || t - tops[i - 1] > half).length);
+    }
+    if (lines > 1) add('link-wrapped', [{ path: getPath(el), label: label(el) }], `"${text}" wraps onto ${lines} lines`);
+  }
+
   const labels = {};
   for (const u of units.values()) labels[u.path] = u.label;
   labels.body = 'body';

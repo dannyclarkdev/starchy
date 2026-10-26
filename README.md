@@ -37,6 +37,7 @@ the whole range and lets the page show it where the layout shifts:
 | Overlap | In-flow sibling elements overlap each other. |
 | Escapes container | An element sticks out of its parent's box. |
 | Clipped text | Text is cut off by `overflow: hidden`. |
+| Wrapped link | A link or button label of 5 words or fewer breaks onto 2+ lines. Links inside running text and headings are skipped. |
 | Tiny text | Text is below `--min-font` (default 12px). |
 
 ## Install
@@ -104,7 +105,8 @@ open test-report/report.html
 - **Some content isn't inspected.** Shadow DOM and iframes are skipped.
   Auto-rotating carousels and other animated elements need `--ignore`.
 - **Inline text reflow is ignored on purpose.** It changes at almost every
-  pixel. Text is checked through the clipped-text and tiny-text rules instead.
+  pixel. Text is checked through the clipped-text, wrapped-link and tiny-text rules
+  instead.
 - **Chromium only for now.**
 
 ## Project layout
