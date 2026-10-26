@@ -32,10 +32,14 @@ const BUGS = {
   M17: ['visit', 'map fits the screen'],
   M18: ['visit', 'hours table stays inside its box'],
   M19: ['visit', 'email address stays inside its box'],
-  // held out: outside what starchy checks (fixed elements, vertical clipping, elements hidden on purpose)
-  M20: [ALL, 'page titles are not hidden under the header on phones (held out)'],
-  M21: ['about', 'customer quotes are not cut off (held out)'],
-  M22: ['cakes', 'cake request button shows on phones (held out)'],
+  // held out in round 2 and 3; starchy checks these since round 4
+  M20: [ALL, 'page titles are not hidden under the header on phones'],
+  M21: ['about', 'customer quotes are not cut off'],
+  M22: ['cakes', 'cake request button shows on phones'],
+  // held out from round 4: they need judgment about what the page is for, which starchy doesn't make
+  M23: ['visit', 'phone number shows on phones (held out)'],
+  M24: ['index', 'hero photo shows the bread on phones (held out)'],
+  M25: ['catering', 'package prices show on phones (held out)'],
 };
 
 /** Runs in the page: true for each bug (of `ids`) that is present at this width. */
@@ -82,6 +86,19 @@ function check({ w, ids }) {
     M20: () => { const h = q('.site-header'), t = q('main h1'); return !h || !t || (['fixed', 'absolute'].includes(getComputedStyle(h).position) && r(h).bottom > r(t).top + 1); },
     M21: () => { const x = qa('.quote'); return x.length < 3 || x.some((b) => b.scrollHeight > b.clientHeight + 1); },
     M22: () => { const b = q('.order-form button'); return !shown(b) || r(b).right > vw + 1; },
+    M23: () => !shown(q('.phone')),
+    // the loaves sit at y≈185–235 of the 560×380 photo: that band must be inside what object-fit shows
+    M24: () => {
+      const i = q('.hero-img');
+      if (!shown(i)) return true;
+      const s = getComputedStyle(i);
+      if (s.objectFit !== 'cover') return false;
+      const w = i.clientWidth, h = i.clientHeight, scale = Math.max(w / 560, h / 380);
+      const py = parseFloat(s.objectPosition.split(' ')[1]) / 100;
+      const top = ((380 * scale - h) * py) / scale;
+      return top > 185 || top + h / scale < 235;
+    },
+    M25: () => { const b = qa('.package b'); return b.length < 3 || b.some((x) => !shown(x)); },
   };
   return Object.fromEntries(ids.map((id) => [id, checks[id]()]));
 }

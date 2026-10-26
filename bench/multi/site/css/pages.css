@@ -6,6 +6,9 @@
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; }
 }
+@media (max-width: 600px) {
+  .hero-img { height: 120px; object-fit: cover; object-position: top; }
+}
 @media (min-width: 769px) and (max-width: 1021px) {
   .bakes { grid-template-columns: repeat(2, 1fr); }
 }
@@ -31,10 +34,14 @@
 /* Catering */
 .packages { display: grid; grid-template-columns: repeat(3, 300px); gap: 24px; }
 .package { position: relative; }
+.package b { font-size: 22px; }
 .ribbon { display: none; position: absolute; top: -12px; right: 16px; padding: 2px 10px; background: #8a3b12; color: #fff; border-radius: 4px; font-size: 14px; }
 
 @media (max-width: 700px) {
   .packages { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .package p:last-child { display: none; }
 }
 @media (min-width: 700px) and (max-width: 702px) {
   .ribbon { display: block; }
@@ -62,6 +69,10 @@
 .hours td { padding: 4px 0; }
 .map { width: 600px; height: 320px; border: 1px solid #eaddc8; border-radius: 10px; }
 .email { font-size: 20px; }
+
+@media (max-width: 600px) {
+  .phone { display: none; }
+}
 
 @media (max-width: 768px) {
   .visit-grid { grid-template-columns: minmax(0, 1fr); }
