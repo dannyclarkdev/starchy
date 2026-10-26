@@ -270,6 +270,37 @@ test/               fixtures and the test suite (node:test, no extra dependencie
 site/               starchy.dev, a static page
 ```
 
+## Benchmark
+
+`bench/` gives the same task to a coding agent with and without starchy. Each
+run gets a fresh copy of a site with planted layout bugs, and the prompt is a
+customer report: "parts of the site look broken on some phones and tablets".
+A grader that does not use starchy checks every bug at every width from 320 to
+1920px, checks that the design is kept, and counts regressions (problems the
+original site did not have). Some bugs are held out: starchy cannot see them,
+so they show whether agents still look at the page.
+
+Six-page site, 25 bugs (3 held out), starchy 0.4.0, 6 runs per group:
+
+| Model | starchy | Bugs fixed | Held-out fixed | Runs with a regression | Cost | Minutes |
+|---|---|---|---|---|---|---|
+| Sonnet 5.5 | yes | 24.0 / 25 | 13 / 18 | 0 / 6 | $0.17 | 1.7 |
+| Sonnet 5.5 | no | 21.7 / 25 | 13 / 18 | 5 / 6 | $0.20 | 1.5 |
+| Opus 5.5 | yes | 24.0 / 25 | 15 / 18 | 0 / 6 | $0.66 | 3.3 |
+| Opus 5.5 | no | 22.7 / 25 | 17 / 18 | 5 / 6 | $0.78 | 3.5 |
+
+- Without starchy, agents almost never noticed the "Order online" button that
+  disappears on tablets, or the hero buttons whose labels wrap.
+- Every regression was the same one: a fix narrowed the catering cards, and a
+  heading ran out of its box. starchy reports that, so no run with it shipped it.
+- With starchy, Opus fixed fewer held-out bugs. The one it missed most is a hero
+  photo cropped to an empty background on phones, which needs visual judgment.
+
+Limits: 6 runs per group, on a site built for the test. The summary of every
+round, including earlier ones and a one-page benchmark, is in
+`bench/*/results*/summary.md`. To run it:
+`node bench/run.js --bench multi` (needs a logged-in `claude` CLI).
+
 ## Prior art
 
 [ReDeCheck](https://github.com/redecheck/redecheck) (Walsh, Kapfhammer and
