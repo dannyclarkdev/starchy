@@ -1,0 +1,7 @@
+// starchy.dev: a static site served from ./site. Deploy with `npx wrangler deploy`.
+{
+  "name": "starchy",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./site" },
+  "routes": [{ "pattern": "starchy.dev", "custom_domain": true }]
+}

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>starchy — keep your layout crisp at every width</title>
+<meta name="description" content="starchy finds every screen width where your page's layout changes, and flags the changes that are bugs. One command, no config.">
+<meta property="og:title" content="starchy">
+<meta property="og:description" content="Finds every screen width where your layout changes, and flags the ones that are bugs.">
+<meta property="og:url" content="https://starchy.dev">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316140f'/><path d='M6 22h20M10 22v-6M16 22v-10M22 22v-6' stroke='%23f4f0e6' stroke-width='2.5' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4f0e6; --paper-2:#ebe5d6; --ink:#16140f; --ink-2:#5b564b; --line:#d5cdb9;
+  --card:#fffdf8; --code:#1b1913; --code-ink:#efe9da;
+  --mq:#2f8f5b; --fluid:#c98a06; --bad:#d93a3f; --accent:#3b5bdb;
+  --m-bg:#ffffff;
+  --display:"Gloock", Georgia, serif;
+  --body:"Hanken Grotesk", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#14130f; --paper-2:#1c1a15; --ink:#f1ecdf; --ink-2:#a69f8f; --line:#353128;
+    --card:#1c1a15; --code:#0c0b09; --code-ink:#efe9da;
+    --mq:#53b582; --fluid:#e3a826; --bad:#f0656a; --accent:#7c95f0;
+    --m-bg:#22201a;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--body);
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:40px 40px;background-position:-1px -1px;background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,transparent 0%,var(--paper) 70%);pointer-events:none;z-index:-1}
+a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--accent)}
+code,pre,.mono{font-family:var(--mono)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+@media (min-width:720px){.wrap{padding:0 32px}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.logo{font:400 26px/1 var(--display);letter-spacing:-.01em;text-decoration:none;display:flex;align-items:center;gap:10px}
+.logo svg{width:26px;height:26px}
+nav{display:flex;gap:22px;font-size:15px;color:var(--ink-2)}
+nav a{text-decoration:none}
+
+/* hero */
+.hero{padding:56px 0 28px}
+.kicker{font:500 13px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2);margin:0 0 20px}
+h1{font:400 clamp(44px,8.4vw,104px)/.95 var(--display);letter-spacing:-.025em;margin:0;max-width:11ch}
+h1 em{font-style:normal;position:relative;white-space:nowrap}
+h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.04em;height:.09em;background:var(--accent);
+  transform-origin:left;animation:press 1.1s .35s cubic-bezier(.7,0,.2,1) both}
+@keyframes press{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.lede{font-size:clamp(18px,2.2vw,21px);color:var(--ink-2);max-width:40ch;margin:26px 0 30px}
+.install{display:inline-flex;align-items:center;gap:6px;background:var(--code);color:var(--code-ink);
+  border-radius:10px;padding:6px 6px 6px 18px;font:400 16px/1 var(--mono);max-width:100%}
+.install code{overflow:auto;white-space:nowrap;padding:10px 0}
+.install code::before{content:"$ ";opacity:.45}
+.copy{font:500 13px/1 var(--body);background:#ffffff1a;color:inherit;border:0;border-radius:6px;padding:10px 12px;cursor:pointer;flex:none}
+.copy:hover{background:#ffffff2e}
+
+/* sweep demo */
+.demo{margin:56px 0 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;box-shadow:0 1px 0 var(--line),0 24px 60px -30px #0004}
+.demo-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;font:400 13px/1.3 var(--mono);color:var(--ink-2)}
+.demo-bar .readout{color:var(--ink);font-weight:500;min-width:9ch}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:0}
+.k-mq{color:var(--mq)} .k-fluid{color:var(--fluid)} .k-bad{color:var(--bad)}
+.toggle{font:500 12px/1 var(--mono);border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;padding:6px 9px;cursor:pointer}
+.stage{position:relative;overflow:hidden;border-radius:8px;background:repeating-linear-gradient(135deg,transparent 0 7px,var(--paper-2) 7px 8px)}
+.frame{position:relative;height:var(--fh);overflow:visible;border-right:2px solid var(--ink)}
+.mock{position:absolute;left:0;top:0;transform-origin:0 0;border:0;height:1040px;background:var(--m-bg);pointer-events:none}
+.frame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(transparent,var(--card));pointer-events:none}
+.ruler{position:relative;height:64px;margin-top:10px;font:400 11px/1 var(--mono);color:var(--ink-2)}
+.ruler .ticks{position:absolute;left:0;right:0;top:0;height:12px;
+  background:linear-gradient(90deg,var(--ink-2) 1px,transparent 1px) 0 0/calc(100% / 24) 100%,
+             linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/calc(100% / 96) 60%;background-repeat:repeat-x}
+.ruler .off{position:absolute;left:0;top:0;bottom:0;width:calc(320 / 1920 * 100%);background:repeating-linear-gradient(135deg,transparent 0 4px,var(--paper-2) 4px 5px)}
+.ruler .lab{position:absolute;top:16px;transform:translateX(-50%)}
+.cursor{position:absolute;top:-10px;bottom:0;width:2px;margin-left:-1px;background:var(--ink)}
+.pin{position:absolute;top:0;width:2px;margin-left:-1px;height:calc(28px + var(--lv) * 13px);background:currentColor;animation:drop .35s ease-out both}
+.pin span{position:absolute;bottom:-1px;left:5px;font-weight:500;white-space:nowrap}
+.pin.right span{left:auto;right:5px}
+.pin::after{content:"";position:absolute;bottom:-4px;left:-3px;width:8px;height:8px;border-radius:50%;background:currentColor}
+@keyframes drop{from{transform:scaleY(0);transform-origin:top}to{transform:scaleY(1)}}
+.log{list-style:none;margin:8px 0 0;padding:10px 0 0;border-top:1px dashed var(--line);font:400 13px/1.9 var(--mono);min-height:calc(6 * 1.9em + 10px)}
+.log li{display:grid;grid-template-columns:6ch 11ch 1fr;gap:12px;animation:fade .3s both}
+.log li span:nth-child(3){color:var(--ink-2)}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}}
+@media (max-width:640px){.log li{grid-template-columns:6ch 1fr}.log li span:nth-child(3){grid-column:1/-1;margin-top:-.5em}.legend{margin-left:0}}
+
+/* sections */
+section{padding:96px 0 0}
+h2{font:400 clamp(34px,5vw,56px)/1.02 var(--display);letter-spacing:-.02em;margin:0 0 18px;max-width:18ch}
+.sub{color:var(--ink-2);max-width:56ch;margin:0 0 40px;font-size:18px}
+.miss{position:relative;height:96px;margin:0 0 8px;border-bottom:2px solid var(--ink)}
+.miss .shot{position:absolute;bottom:0;transform:translateX(-50%);text-align:center;font:500 12px/1.3 var(--mono)}
+.miss .shot::after{content:"";display:block;width:2px;height:34px;background:var(--ink);margin:6px auto 0}
+.miss .bug{color:var(--bad)}.miss .bug::after{background:var(--bad);height:58px}
+.miss-cap{font:400 13px/1.5 var(--mono);color:var(--ink-2);display:flex;justify-content:space-between}
+
+.steps{counter-reset:s;display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;padding:0;margin:0;list-style:none}
+@media (min-width:800px){.steps{grid-template-columns:repeat(5,1fr)}}
+.steps li{background:var(--card);padding:24px 22px 26px;counter-increment:s}
+.steps li::before{content:counter(s,decimal-leading-zero);display:block;font:400 34px/1 var(--display);color:var(--accent);margin-bottom:14px}
+.steps h3{font:600 17px/1.3 var(--body);margin:0 0 6px}
+.steps p{margin:0;font-size:15px;color:var(--ink-2)}
+
+.kinds{display:grid;gap:16px;margin:40px 0 0}
+@media (min-width:800px){.kinds{grid-template-columns:repeat(3,1fr)}}
+.kind{border-left:4px solid currentColor;padding:4px 0 4px 16px}
+.kind h3{font:600 17px/1.3 var(--body);margin:0 0 4px}
+.kind p{margin:0;font-size:15px;color:var(--ink-2)}
+
+.problems{display:grid;gap:16px;margin:0;padding:0;list-style:none}
+@media (min-width:640px){.problems{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.problems{grid-template-columns:repeat(3,1fr)}}
+.problems li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px}
+.problems h3{font:600 17px/1.3 var(--body);margin:0 0 6px;display:flex;align-items:center;gap:10px}
+.problems h3::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--bad);flex:none}
+.problems p{margin:0;font-size:15px;color:var(--ink-2)}
+
+.ci{display:grid;gap:32px;align-items:start}
+@media (min-width:900px){.ci{grid-template-columns:5fr 6fr}}
+pre{margin:0;background:var(--code);color:var(--code-ink);border-radius:12px;padding:22px 24px;font-size:14px;line-height:1.7;overflow:auto}
+pre .c{color:#8f887a}
+.ci ul{margin:0;padding-left:20px;color:var(--ink-2)}
+.ci li{margin-bottom:8px}
+
+.cta{text-align:center;padding:120px 0 40px}
+.cta h2{margin:0 auto 26px}
+footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:40px 0 48px;margin-top:40px;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2)}
+footer nav{gap:18px}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/" aria-label="starchy home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M6 22h20M10 22v-6M16 22v-10M22 22v-6" stroke="var(--paper)" stroke-width="2.5" stroke-linecap="round"/></svg>
+      starchy
+    </a>
+    <nav aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#ci">CI</a>
+      <a href="https://github.com/dannyclarkdev/starchy">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <p class="kicker">Responsive layout testing, one command</p>
+      <h1>Keep your layout <em>crisp</em> at every width.</h1>
+      <p class="lede">starchy finds every screen width where your page's layout changes, and flags the changes that are bugs.</p>
+      <div class="install">
+        <code id="cmd">npx starchy https://example.com</code>
+        <button class="copy" type="button" data-copy="cmd">Copy</button>
+      </div>
+
+      <figure class="demo" aria-label="Animated demo: starchy sweeps a sample page from 1920 to 320 pixels wide and pins each layout change">
+        <div class="demo-bar">
+          <span>width <span class="readout" id="readout">1920px</span></span>
+          <button class="toggle" id="toggle" type="button" aria-pressed="false">Pause</button>
+          <div class="legend">
+            <span class="k-mq">media query</span>
+            <span class="k-fluid">fluid change</span>
+            <span class="k-bad">problem</span>
+          </div>
+        </div>
+        <div class="stage" id="stage">
+          <div class="frame" id="frame">
+            <iframe class="mock" id="mock" title="Sample page" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
+                    </div>
+        </div>
+        <div class="ruler" id="ruler" aria-hidden="true">
+          <div class="off"></div><div class="ticks"></div>
+          <span class="lab" style="left:calc(320/1920*100%)">320</span>
+          <span class="lab" style="left:50%">960</span>
+          <span class="lab" style="left:calc(100% - 2ch)">1920</span>
+          <div class="cursor" id="cursor"></div>
+        </div>
+        <ol class="log" id="log" aria-live="polite"></ol>
+      </figure>
+    </div>
+
+    <section aria-labelledby="miss">
+      <h2 id="miss">Breakpoint screenshots miss the bugs in between.</h2>
+      <p class="sub">Most responsive tests screenshot a few fixed widths, such as 375, 768 and 1440. A bug that only shows at 912px slips through. starchy checks the whole range, so the page itself shows where its layout changes.</p>
+      <div class="miss" aria-hidden="true">
+        <span class="shot" style="left:calc(375/1600*100%)">375</span>
+        <span class="shot" style="left:calc(768/1600*100%)">768</span>
+        <span class="shot bug" style="left:calc(912/1600*100%)">912 ✕</span>
+        <span class="shot" style="left:calc(1440/1600*100%)">1440</span>
+      </div>
+      <div class="miss-cap"><span>0px</span><span>1600px</span></div>
+    </section>
+
+    <section id="how" aria-labelledby="how-h">
+      <h2 id="how-h">How it works</h2>
+      <p class="sub">starchy runs your page in headless Chromium through Playwright and sweeps it from wide to narrow.</p>
+      <ol class="steps">
+        <li><h3>Fingerprint</h3><p>Load at 1920px. Record how each container's children sit in rows (for example <code>3+3+1</code>), which elements show, and any problems.</p></li>
+        <li><h3>Sweep</h3><p>Step down 8px at a time. When the fingerprint changes, binary-search to the exact pixel.</p></li>
+        <li><h3>Capture</h3><p>Take before and after screenshots with the changed elements outlined.</p></li>
+        <li><h3>Classify</h3><p>Sort each change as a media query, a fluid change or a problem.</p></li>
+        <li><h3>Report</h3><p>Write <code>report.html</code> and a <code>fingerprint.json</code> to compare against later.</p></li>
+      </ol>
+      <div class="kinds">
+        <div class="kind k-mq"><h3>Media query</h3><p>The width matches an <code>@media</code> breakpoint in your CSS. The change is expected.</p></div>
+        <div class="kind k-fluid"><h3>Fluid change</h3><p>The layout changed with no media query, from flex-wrap, auto-fit or content size. Check that you meant it.</p></div>
+        <div class="kind k-bad"><h3>Problem</h3><p>Something broke at this width.</p></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="problems-h">
+      <h2 id="problems-h">What counts as a problem</h2>
+      <p class="sub">Every problem comes with the exact width range where it happens and the element that causes it.</p>
+      <ul class="problems">
+        <li><h3>Horizontal scroll</h3><p>The page is wider than the screen. starchy names the element that causes it: it hides each candidate and checks if the scroll width shrinks.</p></li>
+        <li><h3>Overlap</h3><p>In-flow sibling elements overlap each other.</p></li>
+        <li><h3>Escapes container</h3><p>An element sticks out of its parent's box.</p></li>
+        <li><h3>Clipped text</h3><p>Text is cut off by <code>overflow: hidden</code>.</p></li>
+        <li><h3>Wrapped link</h3><p>A link or button label of 5 words or fewer breaks onto 2 or more lines.</p></li>
+        <li><h3>Tiny text</h3><p>Text is smaller than <code>--min-font</code>, 12px by default.</p></li>
+      </ul>
+    </section>
+
+    <section id="ci" aria-labelledby="ci-h">
+      <h2 id="ci-h">Catch layout regressions in CI</h2>
+      <div class="ci">
+        <div>
+          <p class="sub" style="margin-bottom:20px">Save a fingerprint of a known-good build. On every pull request, compare against it and fail on new problems.</p>
+          <ul>
+            <li>The comparison is structural, not pixel-based, so font rendering noise does not make it flaky.</li>
+            <li>The report lists new problems, fixed problems, and layout changes that appeared or disappeared.</li>
+            <li>Check one page, several pages, or a whole <code>sitemap.xml</code> in one report.</li>
+          </ul>
+        </div>
+<pre><span class="c"># once, on a known-good build</span>
+starchy https://staging.example.com --out baseline
+
+<span class="c"># on every pull request</span>
+starchy https://staging.example.com \
+  --baseline baseline/fingerprint.json \
+  --fail-on new</pre>
+      </div>
+    </section>
+
+    <section class="cta" aria-labelledby="cta-h">
+      <h2 id="cta-h">Sweep your page.</h2>
+      <div class="install">
+        <code id="cmd2">npx starchy https://example.com</code>
+        <button class="copy" type="button" data-copy="cmd2">Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>MIT license · Node 18+ · Chromium</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/dannyclarkdev/starchy">GitHub</a>
+      <a href="https://www.npmjs.com/package/starchy">npm</a>
+      <a href="https://github.com/dannyclarkdev/starchy/issues">Issues</a>
+    </nav>
+  </footer>
+</div>
+
+<template id="mock-src">
+<style>
+:root{--bg:#fff;--block:#e4ded0;--ink:#2a2720}
+@media (prefers-color-scheme: dark){:root{--bg:#22201a;--block:#38342b;--ink:#d9d2c1}}
+html{overflow:hidden}body{margin:0;background:var(--bg)}
+.in{padding:0 48px}
+nav{display:flex;align-items:center;justify-content:space-between;height:110px;border-bottom:3px solid var(--block)}
+.logo{width:150px;height:34px;border-radius:8px;background:var(--ink)}
+.links{display:flex;gap:36px}.links i{width:110px;height:18px;border-radius:9px;background:var(--block)}
+.burger{display:none;width:52px;height:38px;background:linear-gradient(var(--ink) 0 0) 0 0/100% 7px no-repeat,linear-gradient(var(--ink) 0 0) 0 50%/100% 7px no-repeat,linear-gradient(var(--ink) 0 0) 0 100%/100% 7px no-repeat}
+.hero{display:flex;gap:48px;padding:64px 0 56px}
+.copy{flex:1 1 0}.copy i{display:block;height:46px;border-radius:10px;background:var(--ink);margin-bottom:18px}
+.copy i:nth-child(2){width:70%}.copy b{display:block;height:18px;width:85%;border-radius:9px;background:var(--block);margin-top:30px}
+.img{flex:1 1 0;height:240px;border-radius:16px;background:var(--block)}
+.banner{width:560px;height:64px;border-radius:12px;background:var(--ink);margin-bottom:48px}
+.banner.flag{outline:8px solid #d93a3f;outline-offset:6px}
+.cards{display:flex;flex-wrap:wrap;gap:24px}
+.card{flex:1 1 360px;height:230px;box-sizing:border-box;border-radius:14px;border:3px solid var(--block);padding:20px}
+.card i{display:block;height:110px;border-radius:8px;background:var(--block)}
+.card b{display:block;height:16px;width:60%;border-radius:8px;background:var(--block);margin-top:22px}
+@media (max-width:1023px){.hero{flex-direction:column}.img{flex:none}}
+@media (max-width:767px){.links{display:none}.burger{display:block}}
+</style>
+<div class="in">
+  <nav><span class="logo"></span><span class="links"><i></i><i></i><i></i><i></i><i></i></span><span class="burger"></span></nav>
+  <div class="hero"><div class="copy"><i></i><i></i><b></b></div><div class="img"></div></div>
+  <div class="banner"></div>
+  <div class="cards">
+    <div class="card"><i></i><b></b></div><div class="card"><i></i><b></b></div><div class="card"><i></i><b></b></div>
+    <div class="card"><i></i><b></b></div><div class="card"><i></i><b></b></div><div class="card"><i></i><b></b></div>
+    <div class="card"><i></i><b></b></div>
+  </div>
+</div>
+</template>
+
+<script>
+// Copy buttons
+document.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent); btn.textContent = 'Copied'; }
+  catch { btn.textContent = 'Select it'; }
+  setTimeout(() => btn.textContent = 'Copy', 1600);
+}));
+
+// Demo: a tiny in-browser starchy. It sweeps the mock page at real widths, bisects each change, and classifies it.
+const MAX = 1920, MIN = 320, STEP = 8, BREAKPOINTS = [1024, 768]; // the mock's @media max-widths + 1
+const $ = id => document.getElementById(id);
+const stage = $('stage'), frame = $('frame'), mock = $('mock'), ruler = $('ruler'), log = $('log');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let scale = 1, w = MAX, prev, pins = [], paused = false, timer, doc, cards, hero, bug, burger;
+
+function fingerprint(width) {
+  mock.style.width = width + 'px';
+  const rows = [];
+  let top = null;
+  for (const c of cards) { if (c.offsetTop !== top) { rows.push(0); top = c.offsetTop; } rows[rows.length - 1]++; }
+  return {
+    nav: mock.contentWindow.getComputedStyle(burger).display === 'none' ? 'links' : 'menu',
+    hero: hero.children[0].offsetTop === hero.children[1].offsetTop ? '2 cols' : '1 col',
+    cards: rows.join('+'),
+    scroll: doc.documentElement.scrollWidth > doc.documentElement.clientWidth,
+  };
+}
+const same = (a, b) => a.nav === b.nav && a.hero === b.hero && a.cards === b.cards && a.scroll === b.scroll;
+
+function describe(a, b) {
+  if (b.scroll && !a.scroll) return ['bad', 'horizontal scroll: .banner'];
+  const parts = ['nav', 'hero', 'cards'].filter(k => a[k] !== b[k]).map(k => `${k} ${a[k]} → ${b[k]}`);
+  return [BREAKPOINTS.includes(at + 1) ? 'mq' : 'fluid', parts.join(', ')];
+}
+let at;
+const KIND = { mq: 'media query', fluid: 'fluid', bad: 'problem' };
+
+function pin(width, kind, text) {
+  const el = document.createElement('div');
+  el.className = 'pin k-' + kind + (width > 1500 ? ' right' : '');
+  el.style.left = (width / MAX * 100) + '%';
+  el.style.setProperty('--lv', pins.length % 3);
+  el.innerHTML = `<span>${width}</span>`;
+  ruler.appendChild(el); pins.push(el);
+  const li = document.createElement('li');
+  li.innerHTML = `<span>${width}px</span><span class="k-${kind}">${KIND[kind]}</span><span>${text}</span>`;
+  log.appendChild(li);
+}
+
+function render() {
+  frame.style.width = (w * scale) + 'px';
+  mock.style.transform = `scale(${scale})`;
+  $('cursor').style.left = (w / MAX * 100) + '%';
+  $('readout').textContent = w + 'px';
+  bug.classList.toggle('flag', prev && prev.scroll);
+}
+
+function step() {
+  const next = Math.max(MIN, w - STEP);
+  const fp = fingerprint(next);
+  if (!same(prev, fp)) {
+    let hi = w, lo = next; // hi keeps the old fingerprint, lo has the new one
+    while (hi - lo > 1) { const mid = (hi + lo) >> 1; same(prev, fingerprint(mid)) ? hi = mid : lo = mid; }
+    at = lo;
+    const [kind, text] = describe(prev, fingerprint(lo));
+    pin(lo, kind, text);
+    fingerprint(next);
+  }
+  prev = fp; w = next;
+  render();
+}
+
+function reset() { w = MAX; pins.forEach(p => p.remove()); pins = []; log.innerHTML = ''; prev = fingerprint(MAX); render(); }
+
+function loop() {
+  if (paused) return;
+  if (w > MIN) { step(); timer = setTimeout(loop, 34); }
+  else timer = setTimeout(() => { reset(); timer = setTimeout(loop, 700); }, 3200);
+}
+
+function measure() {
+  scale = stage.clientWidth / MAX;
+  frame.style.setProperty('--fh', (680 * scale) + 'px');
+  render();
+}
+
+mock.addEventListener('load', () => {
+  doc = mock.contentDocument;
+  cards = [...doc.querySelector('.cards').children];
+  hero = doc.querySelector('.hero'); bug = doc.querySelector('.banner'); burger = doc.querySelector('.burger');
+  new ResizeObserver(measure).observe(stage);
+  reset();
+  if (reduce) { while (w > MIN) step(); paused = true; $('toggle').textContent = 'Replay'; }
+  else loop();
+});
+mock.srcdoc = $('mock-src').innerHTML;
+
+$('toggle').addEventListener('click', e => {
+  paused = !paused;
+  e.currentTarget.setAttribute('aria-pressed', paused);
+  e.currentTarget.textContent = paused ? 'Play' : 'Pause';
+  clearTimeout(timer);
+  if (!paused) { if (w <= MIN) reset(); loop(); }
+});
+</script>
+</body>
+</html>
