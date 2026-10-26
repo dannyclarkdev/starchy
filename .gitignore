@@ -5,3 +5,4 @@ test-report/
 .DS_Store
 auth.json
 *.storage.json
+bench/*/results*/

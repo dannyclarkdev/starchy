@@ -1,0 +1,73 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 17px/1.5 Georgia, "Times New Roman", serif; color: #2b2118; background: #fffaf3; }
+a { color: inherit; }
+img { display: block; }
+h2 { font-size: 28px; margin: 0 0 20px; }
+
+/* Header */
+.site-header { display: flex; align-items: center; gap: 32px; padding: 16px 24px; border-bottom: 1px solid #eaddc8; }
+.logo { font-size: 24px; font-weight: bold; text-decoration: none; white-space: nowrap; }
+.nav { display: flex; gap: 36px; margin-left: auto; }
+.nav a { white-space: nowrap; text-decoration: none; }
+.order-btn { background: #8a3b12; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none; white-space: nowrap; }
+.menu-btn { display: none; margin-left: auto; font: inherit; padding: 8px 14px; background: none; border: 1px solid #2b2118; border-radius: 6px; }
+
+@media (max-width: 960px) {
+  .order-btn { display: none; }
+}
+@media (max-width: 768px) {
+  .nav { display: none; }
+  .menu-btn { display: block; }
+  .order-btn { display: inline-block; }
+}
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: center; max-width: 1200px; margin: 0 auto; padding: 64px 24px; }
+.hero h1 { font-size: clamp(32px, 5vw, 56px); line-height: 1.1; margin: 0 0 16px; }
+.hero-actions { display: flex; gap: 12px; margin-top: 24px; }
+.btn { flex: 1 1 0; text-align: center; padding: 12px 16px; border: 2px solid #8a3b12; border-radius: 6px; text-decoration: none; }
+.btn.primary { background: #8a3b12; color: #fff; }
+.hero-img { width: 560px; height: auto; border-radius: 12px; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
+}
+
+/* Today's bakes */
+.bakes { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+.grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+.card { background: #fff; border: 1px solid #eaddc8; border-radius: 10px; overflow: hidden; }
+.photo { height: 140px; background: #e9d3b4; }
+.card-body { position: relative; padding: 16px; }
+.card h3 { font-size: 20px; margin: 0 0 8px; }
+.card p { margin: 0; }
+.price { position: absolute; top: 16px; right: 16px; padding: 2px 8px; border-radius: 4px; background: #fff3e0; font-weight: bold; }
+.tags { display: flex; gap: 8px; margin-top: 12px; }
+.tags span { white-space: nowrap; padding: 2px 10px; border: 1px solid #d9c4a5; border-radius: 99px; font-size: 14px; }
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1025px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Visit */
+.visit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+.card-box { background: #fff; border: 1px solid #eaddc8; border-radius: 10px; padding: 24px; }
+.hours table { width: 340px; border-collapse: collapse; }
+.hours td { padding: 4px 0; }
+
+@media (max-width: 768px) {
+  .visit { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Newsletter */
+.newsletter { padding: 48px 24px; text-align: center; background: #f3e6d3; }
+.newsletter form { display: flex; gap: 8px; max-width: 640px; margin: 0 auto; }
+.newsletter input { flex: 1; min-width: 0; padding: 12px; font: inherit; }
+.newsletter button { flex: 0 0 30%; padding: 12px; font: inherit; color: #fff; background: #8a3b12; border: 0; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Footer */
+footer { padding: 24px; text-align: center; border-top: 1px solid #eaddc8; }
+.legal { margin: 0; font-size: calc(7px + 0.3vw); }

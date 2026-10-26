@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearth &amp; Crumb Bakery</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="logo" href="#">Hearth &amp; Crumb</a>
+  <nav class="nav" aria-label="Main">
+    <a href="#bakes">Today's bakes</a>
+    <a href="#cakes">Custom cakes</a>
+    <a href="#catering">Catering</a>
+    <a href="#visit">Visit us</a>
+    <a href="#story">Our story</a>
+  </nav>
+  <a class="order-btn" href="#order">Order online</a>
+  <button class="menu-btn" type="button" aria-label="Open menu">Menu</button>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-copy">
+      <h1>Bread worth getting up early for</h1>
+      <p>Sourdough, pastries and cakes, baked every morning on Commercial Street since 1987.</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#order">Order ahead</a>
+        <a class="btn" href="#bakes">See today's menu</a>
+      </div>
+    </div>
+    <img class="hero-img" src="hero.svg" alt="Loaves of sourdough on a cooling rack" width="560" height="380">
+  </section>
+
+  <section id="bakes" class="bakes">
+    <h2>Today's bakes</h2>
+    <div class="grid">
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Country Sourdough</h3>
+          <span class="price">$9.00</span>
+          <p>Our everyday loaf, with a 36-hour rise and a dark, crackly crust.</p>
+          <div class="tags"><span>Vegan</span><span>Dairy-free</span></div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Brown Butter Chocolate Chip Cookie</h3>
+          <span class="price">$3.75</span>
+          <p>Brown butter, two kinds of chocolate and a pinch of flaky salt.</p>
+          <div class="tags"><span>Contains dairy</span><span>Contains eggs</span><span>Bestseller</span></div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Cardamom Morning Bun</h3>
+          <span class="price">$4.50</span>
+          <p>Laminated dough rolled with cardamom sugar and orange zest.</p>
+          <div class="tags"><span>Contains dairy</span></div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Maine Blueberry Hand Pie</h3>
+          <span class="price">$5.25</span>
+          <p>Wild blueberries from Washington County in an all-butter crust.</p>
+          <div class="tags"><span>Seasonal</span><span>Contains dairy</span><span>Nut-free</span></div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Seeded Rye</h3>
+          <span class="price">$8.50</span>
+          <p>Dense, dark and full of sunflower, flax and caraway seeds.</p>
+          <div class="tags"><span>Vegan</span></div>
+        </div>
+      </article>
+      <article class="card">
+        <div class="photo"></div>
+        <div class="card-body">
+          <h3>Lemon Olive Oil Cake</h3>
+          <span class="price">$4.00</span>
+          <p>A tender slice with a sharp lemon glaze. Sold by the slice or whole.</p>
+          <div class="tags"><span>Dairy-free</span></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="visit" class="visit">
+    <div class="hours card-box">
+      <h2>Hours</h2>
+      <table>
+        <tr><td>Monday to Friday</td><td>6:30 am to 3:00 pm</td></tr>
+        <tr><td>Saturday</td><td>7:00 am to 2:00 pm</td></tr>
+        <tr><td>Sunday</td><td>Closed</td></tr>
+      </table>
+    </div>
+    <div class="location card-box">
+      <h2>Find us</h2>
+      <p>412 Commercial Street, Portland, Maine. Free parking behind the building.</p>
+    </div>
+  </section>
+
+  <section class="newsletter">
+    <h2>Never miss a seasonal bake</h2>
+    <form>
+      <input type="email" placeholder="you@example.com" aria-label="Email address">
+      <button type="submit">Get the weekly menu</button>
+    </form>
+  </section>
+</main>
+
+<footer>
+  <p class="legal">© 2026 Hearth &amp; Crumb Bakery. All prices include tax. Allergen information is available in the store.</p>
+</footer>
+</body>
+</html>

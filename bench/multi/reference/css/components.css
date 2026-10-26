@@ -1,0 +1,22 @@
+/* Buttons */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.btn { flex: 1 1 auto; white-space: nowrap; text-align: center; padding: 12px 16px; border: 2px solid #8a3b12; border-radius: 6px; text-decoration: none; background: none; font: inherit; color: inherit; }
+.btn.primary { background: #8a3b12; color: #fff; }
+
+/* Product cards */
+.card { background: #fff; border: 1px solid #eaddc8; border-radius: 10px; overflow: hidden; }
+.photo { height: 140px; background: #e9d3b4; }
+.card-body { position: relative; padding: 16px; }
+.card h3 { font-size: 20px; margin: 0 0 8px; padding-right: 72px; }
+.card p { margin: 0; }
+.price { position: absolute; top: 16px; right: 16px; padding: 2px 8px; border-radius: 4px; background: #fff3e0; font-weight: bold; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tags span { white-space: nowrap; padding: 2px 10px; border: 1px solid #d9c4a5; border-radius: 99px; font-size: 14px; }
+
+/* Boxes */
+.box { background: #fff; border: 1px solid #eaddc8; border-radius: 10px; padding: 24px; }
+
+/* Forms */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 15px; }
+.field input, .field select, .field textarea { font: inherit; padding: 10px 12px; border: 1px solid #c9b597; border-radius: 6px; background: #fff; }
