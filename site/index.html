@@ -3,88 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>starchy — keep your layout crisp at every width</title>
-<meta name="description" content="starchy finds every screen width where your page's layout changes, and flags the changes that are bugs. One command, no config.">
+<title>starchy — find the layout bugs between your breakpoints</title>
+<meta name="description" content="starchy sweeps your page across every width, finds the exact pixel where the layout changes, and flags the changes that are bugs. Open-source CLI for responsive layout testing.">
 <meta property="og:title" content="starchy">
-<meta property="og:description" content="Finds every screen width where your layout changes, and flags the ones that are bugs.">
+<meta property="og:description" content="Find the layout bugs between your breakpoints. Open-source CLI.">
 <meta property="og:url" content="https://starchy.dev">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316140f'/><path d='M6 22h20M10 22v-6M16 22v-10M22 22v-6' stroke='%23f4f0e6' stroke-width='2.5' stroke-linecap='round'/></svg>">
+<meta name="theme-color" content="#09090b">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23fafafa'/><path d='M7 22h18M11 22v-5M16 22v-10M21 22v-5' stroke='%2309090b' stroke-width='2.6' stroke-linecap='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#f4f0e6; --paper-2:#ebe5d6; --ink:#16140f; --ink-2:#5b564b; --line:#d5cdb9;
-  --card:#fffdf8; --code:#1b1913; --code-ink:#efe9da;
-  --mq:#2f8f5b; --fluid:#c98a06; --bad:#d93a3f; --accent:#3b5bdb;
-  --m-bg:#ffffff;
-  --display:"Gloock", Georgia, serif;
-  --body:"Hanken Grotesk", system-ui, sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, monospace;
-  color-scheme:light;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --paper:#14130f; --paper-2:#1c1a15; --ink:#f1ecdf; --ink-2:#a69f8f; --line:#353128;
-    --card:#1c1a15; --code:#0c0b09; --code-ink:#efe9da;
-    --mq:#53b582; --fluid:#e3a826; --bad:#f0656a; --accent:#7c95f0;
-    --m-bg:#22201a;
-    color-scheme:dark;
-  }
+  --bg:#09090b; --panel:#0f0f12; --panel-2:#141418; --line:#1f1f25; --line-2:#2a2a32;
+  --ink:#ededef; --ink-2:#a1a1aa; --ink-3:#6b6b76;
+  --mq:#53b582; --fluid:#e3a826; --bad:#f0656a;
+  --sans:"Geist", ui-sans-serif, system-ui, sans-serif;
+  --mono:"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--body);
-  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-  background-size:40px 40px;background-position:-1px -1px;background-attachment:fixed}
-body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,transparent 0%,var(--paper) 70%);pointer-events:none;z-index:-1}
-a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
-a:hover{color:var(--accent)}
-code,pre,.mono{font-family:var(--mono)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
-@media (min-width:720px){.wrap{padding:0 32px}}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+code,pre,kbd,.mono{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+::selection{background:#ededef;color:#09090b}
 
-/* header */
-header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
-.logo{font:400 26px/1 var(--display);letter-spacing:-.01em;text-decoration:none;display:flex;align-items:center;gap:10px}
-.logo svg{width:26px;height:26px}
-nav{display:flex;gap:22px;font-size:15px;color:var(--ink-2)}
-nav a{text-decoration:none}
+/* the page sits between two hairline rails; sections are separated by full-width hairlines */
+.shell{max-width:1180px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.pad{padding-left:16px;padding-right:16px}
+@media (min-width:720px){.pad{padding-left:40px;padding-right:40px}}
+.rule{border-top:1px solid var(--line)}
+.rule > .shell{position:relative}
+@media (min-width:1220px){
+  .rule > .shell::before,.rule > .shell::after{content:"";position:absolute;top:-4px;width:7px;height:7px;border:1px solid var(--line-2);background:var(--bg)}
+  .rule > .shell::before{left:-4px}.rule > .shell::after{right:-4px}
+}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .shell{display:flex;align-items:center;justify-content:space-between;height:56px;border:0}
+.logo{display:flex;align-items:center;gap:9px;font:600 16px/1 var(--mono);letter-spacing:-.02em}
+.logo svg{width:22px;height:22px}
+.top nav{display:flex;align-items:center;gap:4px;font-size:14px;color:var(--ink-2)}
+.top nav a{padding:6px 10px;border-radius:6px}
+.top nav a:hover{color:var(--ink);background:var(--panel-2)}
+.top nav .gh{display:flex;align-items:center;gap:7px;border:1px solid var(--line-2);color:var(--ink)}
+.gh svg{width:16px;height:16px}
+@media (max-width:560px){.top nav .hide-sm{display:none}}
 
 /* hero */
-.hero{padding:56px 0 28px}
-.kicker{font:500 13px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2);margin:0 0 20px}
-h1{font:400 clamp(44px,8.4vw,104px)/.95 var(--display);letter-spacing:-.025em;margin:0;max-width:11ch}
-h1 em{font-style:normal;position:relative;white-space:nowrap}
-h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.04em;height:.09em;background:var(--accent);
-  transform-origin:left;animation:press 1.1s .35s cubic-bezier(.7,0,.2,1) both}
-@keyframes press{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.lede{font-size:clamp(18px,2.2vw,21px);color:var(--ink-2);max-width:40ch;margin:26px 0 30px}
-.install{display:inline-flex;align-items:center;gap:6px;background:var(--code);color:var(--code-ink);
-  border-radius:10px;padding:6px 6px 6px 18px;font:400 16px/1 var(--mono);max-width:100%}
-.install code{overflow:auto;white-space:nowrap;padding:10px 0}
-.install code::before{content:"$ ";opacity:.45}
-.copy{font:500 13px/1 var(--body);background:#ffffff1a;color:inherit;border:0;border-radius:6px;padding:10px 12px;cursor:pointer;flex:none}
-.copy:hover{background:#ffffff2e}
+.hero{padding-top:72px;padding-bottom:40px}
+.pill{display:inline-flex;align-items:center;gap:8px;font:500 12px/1 var(--mono);color:var(--ink-2);border:1px solid var(--line-2);border-radius:99px;padding:7px 12px 7px 10px;margin-bottom:28px}
+.pill i{width:6px;height:6px;border-radius:50%;background:var(--mq);box-shadow:0 0 0 3px color-mix(in srgb,var(--mq) 25%,transparent)}
+h1{font:600 clamp(38px,6.4vw,72px)/1.02 var(--sans);letter-spacing:-.045em;margin:0;max-width:16ch}
+h1 span{color:var(--ink-3)}
+.lede{font-size:clamp(17px,1.8vw,19px);color:var(--ink-2);max-width:58ch;margin:22px 0 32px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);border:1px solid var(--line-2)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{background:#fff}
+.btn:not(.primary):hover{background:var(--panel-2)}
+.install{display:inline-flex;align-items:center;height:44px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel);font:400 14px/1 var(--mono);max-width:100%;overflow:hidden}
+.install code{padding:0 4px 0 14px;white-space:nowrap;overflow:auto}
+.install code::before{content:"$ ";color:var(--ink-3)}
+.copy{flex:none;height:100%;padding:0 14px;background:transparent;border:0;border-left:1px solid var(--line-2);color:var(--ink-2);font:500 12px/1 var(--mono);cursor:pointer}
+.copy:hover{color:var(--ink);background:var(--panel-2)}
 
-/* sweep demo */
-.demo{margin:56px 0 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;box-shadow:0 1px 0 var(--line),0 24px 60px -30px #0004}
-.demo-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;font:400 13px/1.3 var(--mono);color:var(--ink-2)}
-.demo-bar .readout{color:var(--ink);font-weight:500;min-width:9ch}
+/* sweep demo, styled as a tool window */
+.demo-wrap{padding-top:8px;padding-bottom:64px}
+.win{border:1px solid var(--line-2);border-radius:12px;background:var(--panel);overflow:hidden}
+.win-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);font:400 12px/1.3 var(--mono);color:var(--ink-3)}
+.win-bar b{font-weight:500;color:var(--ink)}
+.readout{display:inline-block;min-width:6ch;color:var(--ink)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
-.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:0}
-.k-mq{color:var(--mq)} .k-fluid{color:var(--fluid)} .k-bad{color:var(--bad)}
-.toggle{font:500 12px/1 var(--mono);border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;padding:6px 9px;cursor:pointer}
-.stage{position:relative;overflow:hidden;border-radius:8px;background:repeating-linear-gradient(135deg,transparent 0 7px,var(--paper-2) 7px 8px)}
-.frame{position:relative;height:var(--fh);overflow:visible;border-right:2px solid var(--ink)}
-.mock{position:absolute;left:0;top:0;transform-origin:0 0;border:0;height:1040px;background:var(--m-bg);pointer-events:none}
-.frame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(transparent,var(--card));pointer-events:none}
-.ruler{position:relative;height:64px;margin-top:10px;font:400 11px/1 var(--mono);color:var(--ink-2)}
+.legend span::before{content:"";display:inline-block;width:7px;height:7px;border-radius:2px;background:currentColor;margin-right:6px;vertical-align:1px}
+.k-mq{color:var(--mq)}.k-fluid{color:var(--fluid)}.k-bad{color:var(--bad)}
+.toggle{font:500 11px/1 var(--mono);border:1px solid var(--line-2);background:transparent;color:var(--ink-2);border-radius:5px;padding:5px 8px;cursor:pointer}
+.toggle:hover{color:var(--ink)}
+.win-body{padding:16px 16px 6px}
+.stage{position:relative;overflow:hidden;border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 7px,var(--line) 7px 8px)}
+.frame{position:relative;height:var(--fh);border-right:2px solid var(--ink)}
+.frame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30%;background:linear-gradient(transparent,var(--panel));pointer-events:none}
+.mock{position:absolute;left:0;top:0;transform-origin:0 0;border:0;height:1040px;background:#fff;pointer-events:none}
+.ruler{position:relative;height:64px;margin-top:10px;font:400 11px/1 var(--mono);color:var(--ink-3)}
 .ruler .ticks{position:absolute;left:0;right:0;top:0;height:12px;
-  background:linear-gradient(90deg,var(--ink-2) 1px,transparent 1px) 0 0/calc(100% / 24) 100%,
-             linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/calc(100% / 96) 60%;background-repeat:repeat-x}
-.ruler .off{position:absolute;left:0;top:0;bottom:0;width:calc(320 / 1920 * 100%);background:repeating-linear-gradient(135deg,transparent 0 4px,var(--paper-2) 4px 5px)}
+  background:linear-gradient(90deg,var(--ink-3) 1px,transparent 1px) 0 0/calc(100% / 24) 100%,
+             linear-gradient(90deg,var(--line-2) 1px,transparent 1px) 0 0/calc(100% / 96) 60%;background-repeat:repeat-x}
+.ruler .off{position:absolute;left:0;top:0;bottom:0;width:calc(320 / 1920 * 100%);background:repeating-linear-gradient(135deg,transparent 0 4px,var(--line) 4px 5px)}
 .ruler .lab{position:absolute;top:16px;transform:translateX(-50%)}
 .cursor{position:absolute;top:-10px;bottom:0;width:2px;margin-left:-1px;background:var(--ink)}
 .pin{position:absolute;top:0;width:2px;margin-left:-1px;height:calc(28px + var(--lv) * 13px);background:currentColor;animation:drop .35s ease-out both}
@@ -92,194 +99,314 @@ h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.04em;height:.09
 .pin.right span{left:auto;right:5px}
 .pin::after{content:"";position:absolute;bottom:-4px;left:-3px;width:8px;height:8px;border-radius:50%;background:currentColor}
 @keyframes drop{from{transform:scaleY(0);transform-origin:top}to{transform:scaleY(1)}}
-.log{list-style:none;margin:8px 0 0;padding:10px 0 0;border-top:1px dashed var(--line);font:400 13px/1.9 var(--mono);min-height:calc(6 * 1.9em + 10px)}
-.log li{display:grid;grid-template-columns:6ch 11ch 1fr;gap:12px;animation:fade .3s both}
-.log li span:nth-child(3){color:var(--ink-2)}
-@keyframes fade{from{opacity:0;transform:translateY(4px)}}
-@media (max-width:640px){.log li{grid-template-columns:6ch 1fr}.log li span:nth-child(3){grid-column:1/-1;margin-top:-.5em}.legend{margin-left:0}}
+.log{list-style:none;margin:6px -16px 0;padding:10px 16px 12px;border-top:1px solid var(--line);background:var(--bg);font:400 12.5px/1.95 var(--mono);min-height:calc(6 * 1.95em + 22px)}
+.log li{display:grid;grid-template-columns:6.5ch 11ch 1fr;gap:12px;animation:fade .3s both}
+.log li span:first-child{color:var(--ink)}
+.log li span:nth-child(3){color:var(--ink-3)}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}}
+@media (max-width:640px){.log li{grid-template-columns:6.5ch 1fr}.log li span:nth-child(3){grid-column:1/-1;margin-top:-.55em}.legend{margin-left:0}}
 
 /* sections */
-section{padding:96px 0 0}
-h2{font:400 clamp(34px,5vw,56px)/1.02 var(--display);letter-spacing:-.02em;margin:0 0 18px;max-width:18ch}
-.sub{color:var(--ink-2);max-width:56ch;margin:0 0 40px;font-size:18px}
-.miss{position:relative;height:96px;margin:0 0 8px;border-bottom:2px solid var(--ink)}
-.miss .shot{position:absolute;bottom:0;transform:translateX(-50%);text-align:center;font:500 12px/1.3 var(--mono)}
-.miss .shot::after{content:"";display:block;width:2px;height:34px;background:var(--ink);margin:6px auto 0}
-.miss .bug{color:var(--bad)}.miss .bug::after{background:var(--bad);height:58px}
-.miss-cap{font:400 13px/1.5 var(--mono);color:var(--ink-2);display:flex;justify-content:space-between}
+.sec{padding-top:80px;padding-bottom:80px}
+.eyebrow{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:0 0 16px}
+h2{font:600 clamp(28px,3.6vw,40px)/1.1 var(--sans);letter-spacing:-.035em;margin:0 0 14px;max-width:22ch}
+.sub{color:var(--ink-2);max-width:60ch;margin:0 0 40px;font-size:17px}
+p code,li code,td code{font-size:.88em;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
 
-.steps{counter-reset:s;display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;padding:0;margin:0;list-style:none}
-@media (min-width:800px){.steps{grid-template-columns:repeat(5,1fr)}}
-.steps li{background:var(--card);padding:24px 22px 26px;counter-increment:s}
-.steps li::before{content:counter(s,decimal-leading-zero);display:block;font:400 34px/1 var(--display);color:var(--accent);margin-bottom:14px}
-.steps h3{font:600 17px/1.3 var(--body);margin:0 0 6px}
-.steps p{margin:0;font-size:15px;color:var(--ink-2)}
+/* terminal + report */
+.split{display:grid;gap:20px;align-items:start}
+@media (min-width:960px){.split{grid-template-columns:1fr 1fr}}
+.term{border:1px solid var(--line-2);border-radius:10px;background:var(--panel);overflow:hidden}
+.term-bar{display:flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-bottom:1px solid var(--line);font:400 12px/1 var(--mono);color:var(--ink-3)}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:var(--line-2)}
+.term-bar span{margin-left:8px}
+pre{margin:0;padding:18px 20px;font-size:13px;line-height:1.75;overflow:auto;color:var(--ink-2)}
+pre .w{color:var(--ink)} pre .d{color:var(--ink-3)}
+pre .r{color:var(--bad)} pre .g{color:var(--mq)} pre .y{color:var(--fluid)}
+pre .k{color:#8fb4ff} pre .s{color:#c3e88d}
+.shot{margin:0;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--panel)}
+.shot img{display:block;width:100%;height:auto}
+.shot figcaption{padding:10px 14px;border-top:1px solid var(--line);font:400 12px/1.4 var(--mono);color:var(--ink-3)}
 
-.kinds{display:grid;gap:16px;margin:40px 0 0}
-@media (min-width:800px){.kinds{grid-template-columns:repeat(3,1fr)}}
-.kind{border-left:4px solid currentColor;padding:4px 0 4px 16px}
-.kind h3{font:600 17px/1.3 var(--body);margin:0 0 4px}
-.kind p{margin:0;font-size:15px;color:var(--ink-2)}
+/* checks grid */
+.grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+@media (min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
+.grid > div{background:var(--bg);padding:24px}
+.grid h3{font:600 16px/1.3 var(--sans);margin:12px 0 6px;letter-spacing:-.01em}
+.grid p{margin:0;font-size:14.5px;color:var(--ink-2)}
+.tag{display:inline-block;font:500 11.5px/1 var(--mono);padding:5px 7px;border-radius:5px;color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent)}
+.tag.y{color:var(--fluid);background:color-mix(in srgb,var(--fluid) 12%,transparent);border-color:color-mix(in srgb,var(--fluid) 30%,transparent)}
 
-.problems{display:grid;gap:16px;margin:0;padding:0;list-style:none}
-@media (min-width:640px){.problems{grid-template-columns:repeat(2,1fr)}}
-@media (min-width:960px){.problems{grid-template-columns:repeat(3,1fr)}}
-.problems li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px}
-.problems h3{font:600 17px/1.3 var(--body);margin:0 0 6px;display:flex;align-items:center;gap:10px}
-.problems h3::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--bad);flex:none}
-.problems p{margin:0;font-size:15px;color:var(--ink-2)}
+/* steps */
+.steps{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;padding:0;margin:0;list-style:none;counter-reset:s}
+@media (min-width:860px){.steps{grid-template-columns:repeat(5,1fr)}}
+.steps li{background:var(--bg);padding:22px 20px;counter-increment:s}
+.steps li::before{content:counter(s,decimal-leading-zero);display:block;font:500 12px/1 var(--mono);color:var(--ink-3);margin-bottom:14px}
+.steps h3{font:600 15px/1.3 var(--sans);margin:0 0 6px}
+.steps p{margin:0;font-size:14px;color:var(--ink-2)}
+.kinds{display:grid;gap:12px;margin-top:20px}
+@media (min-width:860px){.kinds{grid-template-columns:repeat(3,1fr)}}
+.kinds div{display:flex;gap:12px;font-size:14px;color:var(--ink-2);padding:14px 16px;border:1px solid var(--line);border-radius:8px}
+.kinds b{display:block;color:var(--ink);font-weight:600}
+.kinds div::before{content:"";flex:none;width:8px;height:8px;border-radius:2px;background:currentColor;margin-top:7px}
+.kinds .k-mq::before{background:var(--mq)}.kinds .k-fluid::before{background:var(--fluid)}.kinds .k-bad::before{background:var(--bad)}
+.kinds div{color:var(--ink-2)}
 
-.ci{display:grid;gap:32px;align-items:start}
-@media (min-width:900px){.ci{grid-template-columns:5fr 6fr}}
-pre{margin:0;background:var(--code);color:var(--code-ink);border-radius:12px;padding:22px 24px;font-size:14px;line-height:1.7;overflow:auto}
-pre .c{color:#8f887a}
-.ci ul{margin:0;padding-left:20px;color:var(--ink-2)}
-.ci li{margin-bottom:8px}
+/* CI */
+.ci ul{margin:0 0 0;padding:0;list-style:none;color:var(--ink-2);font-size:15px}
+.ci li{padding:12px 0 12px 26px;border-top:1px solid var(--line);position:relative}
+.ci li::before{content:"→";position:absolute;left:0;color:var(--ink-3);font-family:var(--mono)}
 
-.cta{text-align:center;padding:120px 0 40px}
+/* options table */
+.table{border:1px solid var(--line);border-radius:10px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{text-align:left;padding:11px 16px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);background:var(--panel)}
+td:first-child{font-family:var(--mono);font-size:13px;color:var(--ink);white-space:nowrap}
+td:nth-child(2){font-family:var(--mono);font-size:13px;color:var(--ink-3);white-space:nowrap}
+td:last-child{color:var(--ink-2)}
+
+/* cta + footer */
+.cta{padding-top:96px;padding-bottom:96px;text-align:center}
 .cta h2{margin:0 auto 26px}
-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:40px 0 48px;margin-top:40px;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2)}
-footer nav{gap:18px}
+.cta .actions{justify-content:center}
+footer .shell{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:28px;padding-bottom:40px;font:400 13px/1.5 var(--mono);color:var(--ink-3)}
+footer nav{display:flex;gap:18px}
+footer a:hover{color:var(--ink)}
 
-@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+<header class="top">
+  <div class="shell pad">
     <a class="logo" href="/" aria-label="starchy home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M6 22h20M10 22v-6M16 22v-10M22 22v-6" stroke="var(--paper)" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#fafafa"/><path d="M7 22h18M11 22v-5M16 22v-10M21 22v-5" stroke="#09090b" stroke-width="2.6" stroke-linecap="round"/></svg>
       starchy
     </a>
     <nav aria-label="Main">
-      <a href="#how">How it works</a>
-      <a href="#ci">CI</a>
-      <a href="https://github.com/dannyclarkdev/starchy">GitHub</a>
+      <a class="hide-sm" href="#how">How it works</a>
+      <a class="hide-sm" href="#ci">CI</a>
+      <a class="hide-sm" href="#options">Options</a>
+      <a class="gh" href="https://github.com/dannyclarkdev/starchy">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
     </nav>
-  </header>
+  </div>
+</header>
 
-  <main>
-    <div class="hero">
-      <p class="kicker">Responsive layout testing, one command</p>
-      <h1>Keep your layout <em>crisp</em> at every width.</h1>
-      <p class="lede">starchy finds every screen width where your page's layout changes, and flags the changes that are bugs.</p>
-      <div class="install">
-        <code id="cmd">npx starchy https://example.com</code>
-        <button class="copy" type="button" data-copy="cmd">Copy</button>
+<main>
+  <div class="shell">
+    <section class="hero pad">
+      <a class="pill" href="https://www.npmjs.com/package/starchy"><i></i>Open source · MIT · Node 18+</a>
+      <h1>Find the layout bugs <span>between your breakpoints.</span></h1>
+      <p class="lede">starchy sweeps your page across every width from 1920px to 320px, finds the exact pixel where the layout changes, and flags the changes that are bugs.</p>
+      <div class="actions">
+        <div class="install">
+          <code id="cmd">npx starchy your-site.com</code>
+          <button class="copy" type="button" data-copy="cmd">copy</button>
+        </div>
+        <a class="btn" href="https://github.com/dannyclarkdev/starchy#readme">Read the docs</a>
       </div>
+    </section>
 
-      <figure class="demo" aria-label="Animated demo: starchy sweeps a sample page from 1920 to 320 pixels wide and pins each layout change">
-        <div class="demo-bar">
+    <div class="demo-wrap pad">
+      <figure class="win" style="margin:0" aria-label="Animated demo: starchy sweeps a sample page from 1920 to 320 pixels wide and pins each layout change">
+        <div class="win-bar">
+          <span><b>starchy</b> sweep</span>
           <span>width <span class="readout" id="readout">1920px</span></span>
-          <button class="toggle" id="toggle" type="button" aria-pressed="false">Pause</button>
+          <button class="toggle" id="toggle" type="button" aria-pressed="false">pause</button>
           <div class="legend">
             <span class="k-mq">media query</span>
             <span class="k-fluid">fluid change</span>
             <span class="k-bad">problem</span>
           </div>
         </div>
-        <div class="stage" id="stage">
-          <div class="frame" id="frame">
-            <iframe class="mock" id="mock" title="Sample page" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
-                    </div>
+        <div class="win-body">
+          <div class="stage" id="stage">
+            <div class="frame" id="frame">
+              <iframe class="mock" id="mock" title="Sample page" aria-hidden="true" tabindex="-1" scrolling="no"></iframe>
+            </div>
+          </div>
+          <div class="ruler" id="ruler" aria-hidden="true">
+            <div class="off"></div><div class="ticks"></div>
+            <span class="lab" style="left:calc(320/1920*100%)">320</span>
+            <span class="lab" style="left:50%">960</span>
+            <span class="lab" style="left:calc(100% - 2ch)">1920</span>
+            <div class="cursor" id="cursor"></div>
+          </div>
+          <ol class="log" id="log" aria-live="polite"></ol>
         </div>
-        <div class="ruler" id="ruler" aria-hidden="true">
-          <div class="off"></div><div class="ticks"></div>
-          <span class="lab" style="left:calc(320/1920*100%)">320</span>
-          <span class="lab" style="left:50%">960</span>
-          <span class="lab" style="left:calc(100% - 2ch)">1920</span>
-          <div class="cursor" id="cursor"></div>
-        </div>
-        <ol class="log" id="log" aria-live="polite"></ol>
       </figure>
     </div>
+  </div>
 
-    <section aria-labelledby="miss">
-      <h2 id="miss">Breakpoint screenshots miss the bugs in between.</h2>
-      <p class="sub">Most responsive tests screenshot a few fixed widths, such as 375, 768 and 1440. A bug that only shows at 912px slips through. starchy checks the whole range, so the page itself shows where its layout changes.</p>
-      <div class="miss" aria-hidden="true">
-        <span class="shot" style="left:calc(375/1600*100%)">375</span>
-        <span class="shot" style="left:calc(768/1600*100%)">768</span>
-        <span class="shot bug" style="left:calc(912/1600*100%)">912 ✕</span>
-        <span class="shot" style="left:calc(1440/1600*100%)">1440</span>
+  <div class="rule"><div class="shell">
+    <section class="sec pad" aria-labelledby="out-h">
+      <p class="eyebrow">Output</p>
+      <h2 id="out-h">One command. Every width. A report you can act on.</h2>
+      <p class="sub">Screenshots at 375, 768 and 1440 miss the bug that only shows at 912px. starchy checks the whole range and gives you the exact pixel, the element, and whether the change was on purpose.</p>
+      <div class="split">
+        <div class="term">
+          <div class="term-bar"><i></i><i></i><i></i><span>~/my-site</span></div>
+<pre><span class="d">$</span> <span class="w">npx starchy test/fixture.html</span>
+<span class="w">starchy</span> file:///…/test/fixture.html
+  widths 1920→320px, heights 900px
+  media-query breakpoints found: 1024, 768
+
+  height 900px
+   1049px  <span class="r">problem</span>
+   1024px  <span class="g">breakpoint</span>
+   1000px  <span class="r">problem</span>
+    900px  <span class="r">problem</span>
+    847px  <span class="y">fluid</span>
+    768px  <span class="g">breakpoint</span>
+    685px  <span class="r">problem</span>
+    614px  <span class="y">fluid</span>
+    <span class="d">…</span>
+
+  <span class="w">16 layout changes · 7 problems (9 elements) · 11.4s</span>
+  report → starchy-report/report.html</pre>
+        </div>
+        <figure class="shot">
+          <img src="report.png" width="2400" height="2000" loading="lazy" alt="The starchy HTML report: 7 problems, each with the width range where it happens and the element that causes it, above a timeline of every layout change">
+          <figcaption>starchy-report/report.html</figcaption>
+        </figure>
       </div>
-      <div class="miss-cap"><span>0px</span><span>1600px</span></div>
     </section>
+  </div></div>
 
-    <section id="how" aria-labelledby="how-h">
-      <h2 id="how-h">How it works</h2>
-      <p class="sub">starchy runs your page in headless Chromium through Playwright and sweeps it from wide to narrow.</p>
+  <div class="rule"><div class="shell">
+    <section class="sec pad" aria-labelledby="checks-h">
+      <p class="eyebrow">Checks</p>
+      <h2 id="checks-h">What counts as a problem</h2>
+      <p class="sub">Every problem comes with the width range where it happens and the element that causes it. Identical problems on repeated elements are grouped into one row.</p>
+      <div class="grid">
+        <div><span class="tag">page-overflow</span><h3>Horizontal scroll</h3><p>The page is wider than the screen. starchy names the element that causes it: it hides each candidate and checks if the scroll width shrinks.</p></div>
+        <div><span class="tag">overlap</span><h3>Overlap</h3><p>In-flow sibling elements overlap each other.</p></div>
+        <div><span class="tag">container-overflow</span><h3>Escapes container</h3><p>An element sticks out of its parent's box.</p></div>
+        <div><span class="tag y">text-clipped</span><h3>Clipped text</h3><p>Text is cut off by <code>overflow: hidden</code>.</p></div>
+        <div><span class="tag y">link-wrapped</span><h3>Wrapped link</h3><p>A link or button label of 5 words or fewer breaks onto 2 or more lines.</p></div>
+        <div><span class="tag y">tiny-text</span><h3>Tiny text</h3><p>Text is smaller than <code>--min-font</code>, 12px by default.</p></div>
+      </div>
+    </section>
+  </div></div>
+
+  <div class="rule" id="how"><div class="shell">
+    <section class="sec pad" aria-labelledby="how-h">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-h">A structural sweep, not a screenshot diff</h2>
+      <p class="sub">starchy drives headless Chromium through Playwright. It compares layout structure, not pixels, so font rendering noise cannot make it flaky.</p>
       <ol class="steps">
-        <li><h3>Fingerprint</h3><p>Load at 1920px. Record how each container's children sit in rows (for example <code>3+3+1</code>), which elements show, and any problems.</p></li>
+        <li><h3>Fingerprint</h3><p>Load at 1920px. Record how each container's children sit in rows, e.g. <code>3+3+1</code>, what is visible, and any problems.</p></li>
         <li><h3>Sweep</h3><p>Step down 8px at a time. When the fingerprint changes, binary-search to the exact pixel.</p></li>
         <li><h3>Capture</h3><p>Take before and after screenshots with the changed elements outlined.</p></li>
-        <li><h3>Classify</h3><p>Sort each change as a media query, a fluid change or a problem.</p></li>
+        <li><h3>Classify</h3><p>Match the width against the <code>@media</code> breakpoints in your CSS.</p></li>
         <li><h3>Report</h3><p>Write <code>report.html</code> and a <code>fingerprint.json</code> to compare against later.</p></li>
       </ol>
       <div class="kinds">
-        <div class="kind k-mq"><h3>Media query</h3><p>The width matches an <code>@media</code> breakpoint in your CSS. The change is expected.</p></div>
-        <div class="kind k-fluid"><h3>Fluid change</h3><p>The layout changed with no media query, from flex-wrap, auto-fit or content size. Check that you meant it.</p></div>
-        <div class="kind k-bad"><h3>Problem</h3><p>Something broke at this width.</p></div>
+        <div class="k-mq"><span><b>Media query</b>The width matches an <code>@media</code> breakpoint. Expected.</span></div>
+        <div class="k-fluid"><span><b>Fluid change</b>No media query: flex-wrap, auto-fit or content size. Check it.</span></div>
+        <div class="k-bad"><span><b>Problem</b>Something broke at this width.</span></div>
       </div>
     </section>
+  </div></div>
 
-    <section aria-labelledby="problems-h">
-      <h2 id="problems-h">What counts as a problem</h2>
-      <p class="sub">Every problem comes with the exact width range where it happens and the element that causes it.</p>
-      <ul class="problems">
-        <li><h3>Horizontal scroll</h3><p>The page is wider than the screen. starchy names the element that causes it: it hides each candidate and checks if the scroll width shrinks.</p></li>
-        <li><h3>Overlap</h3><p>In-flow sibling elements overlap each other.</p></li>
-        <li><h3>Escapes container</h3><p>An element sticks out of its parent's box.</p></li>
-        <li><h3>Clipped text</h3><p>Text is cut off by <code>overflow: hidden</code>.</p></li>
-        <li><h3>Wrapped link</h3><p>A link or button label of 5 words or fewer breaks onto 2 or more lines.</p></li>
-        <li><h3>Tiny text</h3><p>Text is smaller than <code>--min-font</code>, 12px by default.</p></li>
-      </ul>
-    </section>
-
-    <section id="ci" aria-labelledby="ci-h">
-      <h2 id="ci-h">Catch layout regressions in CI</h2>
-      <div class="ci">
-        <div>
-          <p class="sub" style="margin-bottom:20px">Save a fingerprint of a known-good build. On every pull request, compare against it and fail on new problems.</p>
-          <ul>
-            <li>The comparison is structural, not pixel-based, so font rendering noise does not make it flaky.</li>
-            <li>The report lists new problems, fixed problems, and layout changes that appeared or disappeared.</li>
-            <li>Check one page, several pages, or a whole <code>sitemap.xml</code> in one report.</li>
-          </ul>
+  <div class="rule" id="ci"><div class="shell">
+    <section class="sec pad ci" aria-labelledby="ci-h">
+      <p class="eyebrow">CI</p>
+      <h2 id="ci-h">Fail the pull request, not the launch</h2>
+      <p class="sub">Run starchy once on a known-good build and commit its <code>fingerprint.json</code>. On every pull request, compare against it.</p>
+      <div class="split">
+        <div class="term">
+          <div class="term-bar"><span style="margin:0">.github/workflows/layout.yml</span></div>
+<pre><span class="k">name:</span> layout
+<span class="k">on:</span> pull_request
+<span class="k">jobs:</span>
+  <span class="k">starchy:</span>
+    <span class="k">runs-on:</span> ubuntu-latest
+    <span class="k">steps:</span>
+      - <span class="k">uses:</span> actions/checkout@v4
+      - <span class="k">uses:</span> actions/setup-node@v4
+        <span class="k">with:</span> { <span class="k">node-version:</span> 20 }
+      - <span class="k">run:</span> npx playwright install --with-deps chromium
+      - <span class="k">run:</span> <span class="s">&gt;-</span>
+          npx starchy https://staging.example.com
+          --baseline .starchy/fingerprint.json
+          --fail-on new
+      - <span class="k">uses:</span> actions/upload-artifact@v4
+        <span class="k">if:</span> always()
+        <span class="k">with:</span> { <span class="k">name:</span> starchy-report, <span class="k">path:</span> starchy-report }</pre>
         </div>
-<pre><span class="c"># once, on a known-good build</span>
-starchy https://staging.example.com --out baseline
-
-<span class="c"># on every pull request</span>
-starchy https://staging.example.com \
-  --baseline baseline/fingerprint.json \
-  --fail-on new</pre>
+        <ul>
+          <li><code>--fail-on new</code> exits 1 on a new problem or a new layout change. <code>--fail-on problems</code> exits 1 on any problem.</li>
+          <li>The report lists new problems, fixed problems, and layout changes that appeared or disappeared.</li>
+          <li>Pages match by URL. One page compares against a one-page baseline even when the URLs differ, so staging can compare with local.</li>
+          <li>Check several URLs or a whole <code>sitemap.xml</code> in one report. Problems shared by many pages show once.</li>
+          <li>Pages behind a login: pass a Playwright storage state with <code>--storage-state</code>.</li>
+        </ul>
       </div>
     </section>
+  </div></div>
 
-    <section class="cta" aria-labelledby="cta-h">
+  <div class="rule" id="options"><div class="shell">
+    <section class="sec pad" aria-labelledby="opt-h">
+      <p class="eyebrow">Reference</p>
+      <h2 id="opt-h">Options</h2>
+      <p class="sub"><code>starchy &lt;url-or-file&gt;... [options]</code>. A bare domain gets <code>https://</code>, and <code>localhost</code> gets <code>http://</code>.</p>
+      <div class="table">
+        <table>
+          <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--max / --min</td><td>1920 / 320</td><td>Width range to sweep</td></tr>
+            <tr><td>--step</td><td>8</td><td>Coarse step before bisecting. Lower is slower but more thorough.</td></tr>
+            <tr><td>--heights</td><td>900</td><td>Comma-separated viewport heights, each swept separately</td></tr>
+            <tr><td>--dpr</td><td>1</td><td>Device pixel ratio (affects images and hairlines, not layout)</td></tr>
+            <tr><td>--min-font</td><td>12</td><td>Smallest acceptable text size in px</td></tr>
+            <tr><td>--ignore</td><td></td><td>Selectors to skip, e.g. <code>.carousel,.ad-slot</code></td></tr>
+            <tr><td>--settle</td><td>0</td><td>Extra ms to wait after each resize, for JS-driven layouts</td></tr>
+            <tr><td>--out</td><td>starchy-report</td><td>Output folder</td></tr>
+            <tr><td>--baseline</td><td></td><td>An earlier <code>fingerprint.json</code> to compare against</td></tr>
+            <tr><td>--fail-on</td><td>none</td><td><code>problems</code> or <code>new</code> makes starchy exit 1</td></tr>
+            <tr><td>--no-screenshots</td><td></td><td>Faster runs, report without images</td></tr>
+            <tr><td>--problem-shots</td><td></td><td>Add a screenshot of each problem at its first failing width, with the element outlined</td></tr>
+            <tr><td>--stress</td><td></td><td>Double the text in repeated items (lists, cards, grids) to find layouts that only hold with short content</td></tr>
+            <tr><td>--storage-state</td><td></td><td>A Playwright storage state file, for pages behind a login</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div></div>
+
+  <div class="rule"><div class="shell">
+    <section class="cta pad" aria-labelledby="cta-h">
       <h2 id="cta-h">Sweep your page.</h2>
-      <div class="install">
-        <code id="cmd2">npx starchy https://example.com</code>
-        <button class="copy" type="button" data-copy="cmd2">Copy</button>
+      <div class="actions">
+        <div class="install">
+          <code id="cmd2">npx starchy your-site.com</code>
+          <button class="copy" type="button" data-copy="cmd2">copy</button>
+        </div>
       </div>
     </section>
-  </main>
+  </div></div>
+</main>
 
-  <footer>
-    <span>MIT license · Node 18+ · Chromium</span>
+<footer class="rule">
+  <div class="shell pad">
+    <span>starchy · MIT license</span>
     <nav aria-label="Footer">
       <a href="https://github.com/dannyclarkdev/starchy">GitHub</a>
       <a href="https://www.npmjs.com/package/starchy">npm</a>
       <a href="https://github.com/dannyclarkdev/starchy/issues">Issues</a>
     </nav>
-  </footer>
-</div>
+  </div>
+</footer>
 
 <template id="mock-src">
 <style>
-:root{--bg:#fff;--block:#e4ded0;--ink:#2a2720}
-@media (prefers-color-scheme: dark){:root{--bg:#22201a;--block:#38342b;--ink:#d9d2c1}}
+:root{--bg:#fff;--block:#e7e5e0;--ink:#26241f}
 html{overflow:hidden}body{margin:0;background:var(--bg)}
 .in{padding:0 48px}
 nav{display:flex;align-items:center;justify-content:space-between;height:110px;border-bottom:3px solid var(--block)}
@@ -291,7 +418,7 @@ nav{display:flex;align-items:center;justify-content:space-between;height:110px;b
 .copy i:nth-child(2){width:70%}.copy b{display:block;height:18px;width:85%;border-radius:9px;background:var(--block);margin-top:30px}
 .img{flex:1 1 0;height:240px;border-radius:16px;background:var(--block)}
 .banner{width:560px;height:64px;border-radius:12px;background:var(--ink);margin-bottom:48px}
-.banner.flag{outline:8px solid #d93a3f;outline-offset:6px}
+.banner.flag{outline:8px solid #f0656a;outline-offset:6px}
 .cards{display:flex;flex-wrap:wrap;gap:24px}
 .card{flex:1 1 360px;height:230px;box-sizing:border-box;border-radius:14px;border:3px solid var(--block);padding:20px}
 .card i{display:block;height:110px;border-radius:8px;background:var(--block)}
@@ -314,9 +441,9 @@ nav{display:flex;align-items:center;justify-content:space-between;height:110px;b
 <script>
 // Copy buttons
 document.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent); btn.textContent = 'Copied'; }
-  catch { btn.textContent = 'Select it'; }
-  setTimeout(() => btn.textContent = 'Copy', 1600);
+  try { await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent); btn.textContent = 'copied'; }
+  catch { btn.textContent = 'select it'; }
+  setTimeout(() => btn.textContent = 'copy', 1600);
 }));
 
 // Demo: a tiny in-browser starchy. It sweeps the mock page at real widths, bisects each change, and classifies it.
@@ -340,12 +467,11 @@ function fingerprint(width) {
 }
 const same = (a, b) => a.nav === b.nav && a.hero === b.hero && a.cards === b.cards && a.scroll === b.scroll;
 
-function describe(a, b) {
+function describe(a, b, at) {
   if (b.scroll && !a.scroll) return ['bad', 'horizontal scroll: .banner'];
   const parts = ['nav', 'hero', 'cards'].filter(k => a[k] !== b[k]).map(k => `${k} ${a[k]} → ${b[k]}`);
   return [BREAKPOINTS.includes(at + 1) ? 'mq' : 'fluid', parts.join(', ')];
 }
-let at;
 const KIND = { mq: 'media query', fluid: 'fluid', bad: 'problem' };
 
 function pin(width, kind, text) {
@@ -374,8 +500,7 @@ function step() {
   if (!same(prev, fp)) {
     let hi = w, lo = next; // hi keeps the old fingerprint, lo has the new one
     while (hi - lo > 1) { const mid = (hi + lo) >> 1; same(prev, fingerprint(mid)) ? hi = mid : lo = mid; }
-    at = lo;
-    const [kind, text] = describe(prev, fingerprint(lo));
+    const [kind, text] = describe(prev, fingerprint(lo), lo);
     pin(lo, kind, text);
     fingerprint(next);
   }
@@ -403,7 +528,7 @@ mock.addEventListener('load', () => {
   hero = doc.querySelector('.hero'); bug = doc.querySelector('.banner'); burger = doc.querySelector('.burger');
   new ResizeObserver(measure).observe(stage);
   reset();
-  if (reduce) { while (w > MIN) step(); paused = true; $('toggle').textContent = 'Replay'; }
+  if (reduce) { while (w > MIN) step(); paused = true; $('toggle').textContent = 'replay'; }
   else loop();
 });
 mock.srcdoc = $('mock-src').innerHTML;
@@ -411,7 +536,7 @@ mock.srcdoc = $('mock-src').innerHTML;
 $('toggle').addEventListener('click', e => {
   paused = !paused;
   e.currentTarget.setAttribute('aria-pressed', paused);
-  e.currentTarget.textContent = paused ? 'Play' : 'Pause';
+  e.currentTarget.textContent = paused ? 'play' : 'pause';
   clearTimeout(timer);
   if (!paused) { if (w <= MIN) reset(); loop(); }
 });
