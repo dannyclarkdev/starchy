@@ -189,11 +189,14 @@ async function sweepHeight(page, height, breakpoints, o, shotIds) {
     return fp;
   };
 
+  // also stop on both sides of every media-query boundary, so a layout that only
+  // lives between two nearby queries can't fall between two steps
+  const stops = breakpoints.flatMap((b) => [b.hi, b.hi - 1]);
   const first = await at(o.max);
   const transitions = [];
   let cur = first;
   while (cur.width > o.min) {
-    const nextW = Math.max(o.min, cur.width - o.step);
+    const nextW = Math.max(o.min, cur.width - o.step, ...stops.filter((s) => s < cur.width));
     const next = await at(nextW);
     if (next.key === cur.key) { cur = next; continue; }
     // bisect to the exact pixel where the layout stops matching `cur`

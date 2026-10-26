@@ -104,8 +104,43 @@ function issueRanges(first, transitions, min, last) {
     const atEnd = last && last.issues.find((y) => y.key === o.issue.key);
     done.push({ ...o, issue: atEnd || o.issue, to: min });
   }
-  const rank = { 'page-overflow': 0, overlap: 1, 'container-overflow': 2, 'text-clipped': 3, 'link-wrapped': 4, 'tiny-text': 5 };
+  done.push(...smallRanges(transitions));
+  const rank = { 'page-overflow': 0, overlap: 1, 'container-overflow': 2, 'small-range': 3, 'text-clipped': 4, 'link-wrapped': 5, 'tiny-text': 6 };
   return done.sort((a, b) => rank[a.issue.kind] - rank[b.issue.kind] || b.from - a.from);
+}
+
+// A layout that holds for this few px is almost always a media-query off-by-one
+// (e.g. min-width: 769px next to max-width: 767px leaves 768px with neither).
+const SMALL_RANGE = 5;
+
+/**
+ * Container row layouts and element visibility that hold only between two
+ * nearby changes. A state that starts at the sweep's max or reaches its min
+ * is cut off by the sweep, so it is never flagged.
+ */
+function smallRanges(transitions) {
+  const open = new Map();
+  const done = [];
+  // a container whose rows change only because a child appears or disappears is already reported through that child
+  const toggles = (t, path) => [...t.diff.hidden, ...t.diff.shown].some((x) => x.path.startsWith(path + ' > '));
+  const track = (k, path, label, from, to, t, describe) => {
+    const o = open.get(k);
+    const px = o && o.from - t.hi + 1;
+    const byChild = k.startsWith('rows|') && o && (toggles(o.t, path) || toggles(t, path));
+    if (o && o.state === from && px <= SMALL_RANGE && !byChild) {
+      done.push({
+        from: o.from, to: t.hi,
+        issue: { key: 'small-range|' + path, kind: 'small-range', labels: [o.label || path], detail: `${describe(from)} for only ${px}px`, paths: [path] },
+      });
+    }
+    open.set(k, { state: to, from: t.lo, label, t });
+  };
+  for (const t of transitions) {
+    for (const x of t.diff.regrouped) track('rows|' + x.path, x.path, x.label, x.from, x.to, t, (s) => `"${s}" layout holds`);
+    for (const x of t.diff.hidden) track('vis|' + x.path, x.path, x.label, 'visible', 'hidden', t, (s) => s);
+    for (const x of t.diff.shown) track('vis|' + x.path, x.path, x.label, 'hidden', 'visible', t, (s) => s);
+  }
+  return done;
 }
 
 /** Merge problems that differ only by which repeated element they hit, e.g. 7 identical tiny labels. */
@@ -145,4 +180,4 @@ const describeSig = (s) => {
   return `${rows} rows, up to ${max} across`;
 };
 
-module.exports = { keyOf, parseBreakpoints, diffStates, issueRanges, groupRanges, uniqueProblems, describeSig, roots };
+module.exports = { keyOf, parseBreakpoints, diffStates, issueRanges, smallRanges, groupRanges, uniqueProblems, describeSig, roots };

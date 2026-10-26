@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Small-range fixture</title>
+<style>
+  /*
+   * PLANTED, for testing starchy (sweep 900 → 600px):
+   *  [problem]  .grid: min-width 769px and max-width 767px leave 768px with
+   *             neither rule, so the default "2+1" layout shows for 1px
+   *  [problem]  .promo: a rule that only matches 700–702px shows it for 3px
+   *  [fluid]    .tiles wrap with no media query; each layout holds for
+   *             hundreds of px, so they are not flagged
+   */
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+  @media (min-width: 769px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 767px) { .grid { grid-template-columns: 1fr; } }
+  .grid div, .tiles div { background: #eee; padding: 16px; }
+  .promo { display: none; padding: 16px; background: #fe0; }
+  @media (min-width: 700px) and (max-width: 702px) { .promo { display: block; } }
+  .tiles { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; }
+  .tiles div { flex: 0 0 200px; }
+</style>
+</head>
+<body>
+  <div class="grid"><div>One</div><div>Two</div><div>Three</div></div>
+  <div class="promo">Spring sale</div>
+  <div class="tiles"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>
+</body>
+</html>

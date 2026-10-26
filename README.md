@@ -60,8 +60,8 @@ screenshots.
 1. Load the page at a max width (default 1920px) and fingerprint the layout:
    for every container, how its children sit in rows (for example `3+3+1`),
    which elements are visible, and any problems.
-2. Step down 8px at a time. When the fingerprint changes, binary-search to the
-   exact pixel.
+2. Step down 8px at a time, and also stop on both sides of every `@media`
+   breakpoint. When the fingerprint changes, binary-search to the exact pixel.
 3. Take before/after screenshots with the changed elements outlined, and
    classify the change:
    - **Media query**: the width matches a `@media` breakpoint in your CSS, so
@@ -82,6 +82,7 @@ screenshots.
 | Escapes container | An element sticks out of its parent's box. |
 | Clipped text | Text is cut off by `overflow: hidden`. |
 | Wrapped link | A link or button label of 5 words or fewer breaks onto 2+ lines. Only a wrap inside one run of text counts, so lines made by `<br>` or by separate elements are not flagged. Links inside running text (an inline link with other text around it) and links inside headings are skipped. |
+| Small-range layout | A container's rows, or an element's visibility, hold for only 5px or fewer between two changes. This is usually a media-query off-by-one: `min-width: 769px` next to `max-width: 767px` leaves 768px with neither rule. |
 | Tiny text | Text is below `--min-font` (default 12px). |
 
 Repeated problems are grouped: seven identical labels that all have tiny text
@@ -181,9 +182,10 @@ session expired), starchy prints a warning and the report says so.
 
 ## Known limitations
 
-- **Change-and-revert inside one step is missed.** If the layout changes and
-  then changes back within 8px, the sweep won't see it. Use `--step 1` for an
-  exhaustive pass.
+- **Change-and-revert inside one step can be missed.** If the layout changes
+  and then changes back within 8px, the sweep won't see it, unless the change
+  starts or ends at an `@media` breakpoint. Use `--step 1` for an exhaustive
+  pass.
 - **Container queries show up as "fluid".** Only `@media` widths are matched
   to breakpoints.
 - **Worst offender first.** When two elements both cause horizontal scroll,
@@ -224,6 +226,15 @@ src/report.js       HTML report
 test/               fixtures and the test suite (node:test, no extra dependencies)
 site/               starchy.dev, a static page
 ```
+
+## Prior art
+
+[ReDeCheck](https://github.com/redecheck/redecheck) (Walsh, Kapfhammer and
+McMinn, 2017) had the same core idea: sample a page across viewport widths and
+report the layout failures between them. Its research found that fixed steps
+together with the widths declared in the CSS sampled best, and it defined the
+small-range layout check. starchy uses both ideas. ReDeCheck runs
+on Java and Firefox 46.
 
 ## License
 

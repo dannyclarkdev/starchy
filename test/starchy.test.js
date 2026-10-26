@@ -9,7 +9,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { execFile } = require('child_process');
-const { parseBreakpoints, groupRanges, uniqueProblems } = require('../src/analyze');
+const { parseBreakpoints, groupRanges, uniqueProblems, smallRanges } = require('../src/analyze');
 const { compareBaseline } = require('../src/baseline');
 
 const ROOT = path.join(__dirname, '..');
@@ -73,6 +73,36 @@ describe('groupRanges', () => {
   test('keeps different details apart', () => {
     const g = groupRanges([range('a', 'tiny-text', 'span', 1920, 320, '9px'), range('b', 'tiny-text', 'span', 1920, 320, '11px')]);
     assert.equal(g.length, 2);
+  });
+});
+
+// a fake transition, as sweepHeight() makes them: `hi` keeps the old layout, `lo` has the new one
+const change = (hi, { regrouped = [], hidden = [], shown = [] } = {}) => ({ hi, lo: hi - 1, diff: { regrouped, hidden, shown } });
+const rows = (path, from, to) => ({ path, label: path, from, to });
+
+describe('smallRanges', () => {
+  test('flags a layout that holds for 5px or fewer, and not one that holds for 6px', () => {
+    const five = smallRanges([change(800, { regrouped: [rows('div.a', '3', '2+1')] }), change(795, { regrouped: [rows('div.a', '2+1', '1+1+1')] })]);
+    assert.equal(five.length, 1);
+    assert.deepEqual([five[0].from, five[0].to, five[0].issue.detail], [799, 795, '"2+1" layout holds for only 5px']);
+    const six = smallRanges([change(800, { regrouped: [rows('div.a', '3', '2+1')] }), change(794, { regrouped: [rows('div.a', '2+1', '1+1+1')] })]);
+    assert.equal(six.length, 0);
+  });
+  test('flags an element that is visible for only a few px', () => {
+    const r = smallRanges([change(703, { shown: [{ path: 'div.promo', label: 'div.promo' }] }), change(700, { hidden: [{ path: 'div.promo', label: 'div.promo' }] })]);
+    assert.deepEqual(r.map((x) => [x.issue.key, x.from, x.to, x.issue.detail]), [['small-range|div.promo', 702, 700, 'visible for only 3px']]);
+  });
+  test('reports a child that appears for a few px once, not again through the rows of its parent', () => {
+    const promo = { path: 'body > div.promo', label: 'div.promo' };
+    const r = smallRanges([
+      change(703, { regrouped: [rows('body', '1+1', '1+1+1')], shown: [promo] }),
+      change(700, { regrouped: [rows('body', '1+1+1', '1+1')], hidden: [promo] }),
+    ]);
+    assert.deepEqual(r.map((x) => x.issue.labels[0]), ['div.promo']);
+  });
+  test('ignores changes to different containers, and states cut off by the sweep', () => {
+    assert.equal(smallRanges([change(800, { regrouped: [rows('div.a', '3', '2+1')] }), change(799, { regrouped: [rows('div.b', '2', '1+1')] })]).length, 0);
+    assert.equal(smallRanges([change(800, { regrouped: [rows('div.a', '2+1', '3')] })]).length, 0);
   });
 });
 
@@ -155,6 +185,7 @@ describe('end to end', { concurrency: true }, () => {
       switch (req.url) {
         case '/': return send(200, read('fixture.html'));
         case '/about': return send(200, read('fixture-about.html'));
+        case '/small-range': return send(200, read('fixture-small-range.html'));
         case '/login': return send(200, '<!doctype html><title>Log in</title><h1>Log in</h1>');
         case '/private':
           if (/(^|;\s*)session=ok(;|$)/.test(req.headers.cookie || '')) return send(200, read('fixture-about.html'));
@@ -197,6 +228,18 @@ describe('end to end', { concurrency: true }, () => {
     assert.match(text(report), /span in div\.tags ×3/);
     assert.equal((report.match(/<details class="shot">/g) || []).length, 7, 'one screenshot per grouped problem');
     assert.match(r.stdout, /7 problems \(9 elements\)/);
+  });
+
+  test('flags layouts that only hold for a few px, such as a media-query off-by-one', async () => {
+    const r = await cli([base + '/small-range', '--max', '900', '--min', '600', '--no-screenshots', '--out', path.join(OUT, 'small-range')]);
+    assert.equal(r.code, 0, r.stderr);
+    const p = fp('small-range').pages[0].runs[0].problems.filter((x) => x.kind === 'small-range');
+    const grid = find(p, 'small-range', 'div.grid');
+    assert.deepEqual(grid.map((x) => [x.from, x.to, x.detail]), [[768, 768, '"2+1" layout holds for only 1px']]);
+    const promo = find(p, 'small-range', 'div.promo');
+    assert.deepEqual(promo.map((x) => [x.from, x.to, x.detail]), [[702, 700, 'visible for only 3px']]);
+    assert.equal(p.length, 2, 'the tiles reflow over wide ranges, so they are not flagged');
+    assert.match(text(html('small-range')), /Small-range layout/);
   });
 
   test('--stress doubles repeated text and finds the menu that only holds with short names', async () => {
