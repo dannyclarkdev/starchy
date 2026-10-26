@@ -1,0 +1,45 @@
+{
+  "name": "starchy",
+  "version": "0.1.0",
+  "description": "Keep your layout crisp at every width. Finds every screen width where a page's layout changes, and flags the ones that are bugs.",
+  "homepage": "https://starchy.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dannyclarkdev/starchy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dannyclarkdev/starchy/issues"
+  },
+  "bin": {
+    "starchy": "cli.js"
+  },
+  "main": "cli.js",
+  "files": [
+    "cli.js",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node cli.js test/fixture.html --out test-report"
+  },
+  "keywords": [
+    "responsive",
+    "layout",
+    "css",
+    "testing",
+    "visual-regression",
+    "breakpoints",
+    "playwright",
+    "overflow",
+    "accessibility",
+    "ci"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0"
+  },
+  "license": "MIT"
+}

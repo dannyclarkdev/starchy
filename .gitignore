@@ -1,0 +1,5 @@
+node_modules/
+starchy-report/
+test-report/
+*.log
+.DS_Store

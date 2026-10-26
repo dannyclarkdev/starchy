@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painter Pro — fixture with planted bugs</title>
+<style>
+  /*
+   * PLANTED, for testing starchy:
+   *  [expected]   sidebar hides at max-width 1023px
+   *  [expected]   features grid 3 → 1 column at max-width 767px
+   *  [fluid]      nav links wrap with no media query
+   *  [problem]    .hero-img is a fixed 640px wide → horizontal scroll on narrow screens
+   *  [problem]    .pricing cards don't wrap → escape their container
+   *  [problem]    .stats second item gets negative margin as the screen narrows → overlap
+   *  [problem]    .cta has overflow:hidden + nowrap → text gets clipped
+   *  [problem]    footer text uses vw sizing → drops below 12px
+   */
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #222; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 16px 24px; background: #1d2a3a; color: #fff; }
+  .logo { font-weight: 700; font-size: 20px; white-space: nowrap; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: flex-end; }
+  nav a { color: #fff; text-decoration: none; white-space: nowrap; display: block; }
+
+  .layout { display: flex; gap: 24px; padding: 24px; }
+  aside { flex: 0 0 240px; background: #f2f4f7; padding: 16px; border-radius: 8px; }
+  main { flex: 1; }
+  @media (max-width: 1023px) { aside { display: none; } }
+
+  .hero-img { width: 640px; height: 180px; border-radius: 8px; background: linear-gradient(120deg, #4c6ef5, #15aabf); }
+
+  .stats { display: flex; margin: 24px 0; }
+  .stats div { flex: 0 0 200px; padding: 16px; background: #fff4e6; border: 1px solid #ffd8a8; border-radius: 8px; }
+  .stats div + div { margin-left: calc(22vw - 200px); }
+
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .features div { padding: 16px; background: #f8f9fa; border-radius: 8px; }
+  @media (max-width: 767px) { .features { grid-template-columns: 1fr; } }
+
+  .pricing { display: flex; gap: 16px; margin: 24px 0; }
+  .pricing .card { flex: 1 0 210px; padding: 20px; border: 1px solid #dee2e6; border-radius: 8px; }
+
+  .cta { display: block; width: 42%; padding: 12px 16px; background: #2b8a3e; color: #fff; border: 0; border-radius: 6px;
+         font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  footer { padding: 24px; background: #f1f3f5; }
+  footer p { font-size: clamp(9px, 1.2vw, 14px); margin: 0; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">Painter Pro</div>
+    <nav>
+      <a href="#">Interior</a><a href="#">Exterior</a><a href="#">Cabinets</a>
+      <a href="#">Commercial</a><a href="#">Gallery</a><a href="#">Free Estimate</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <h3>Service areas</h3>
+      <p>New Haven, Hamden, West Haven, Branford, Milford.</p>
+    </aside>
+    <main>
+      <h1>Fresh paint, zero hassle</h1>
+      <div class="hero-img" role="img" aria-label="Freshly painted living room"></div>
+
+      <div class="stats">
+        <div><strong>1,200+</strong><br>homes painted</div>
+        <div><strong>4.9★</strong><br>average rating</div>
+      </div>
+
+      <div class="features">
+        <div><h3>Clean crews</h3><p>Drop cloths, daily cleanup, no mess left behind.</p></div>
+        <div><h3>Fixed quotes</h3><p>The price we quote is the price you pay.</p></div>
+        <div><h3>Fast scheduling</h3><p>Most jobs start within two weeks.</p></div>
+      </div>
+
+      <div class="pricing">
+        <div class="card"><h3>Room</h3><p>From $450</p></div>
+        <div class="card"><h3>Whole interior</h3><p>From $3,800</p></div>
+        <div class="card"><h3>Exterior</h3><p>From $5,500</p></div>
+      </div>
+
+      <button class="cta">Get your free painting estimate today</button>
+    </main>
+  </div>
+
+  <footer><p>© 2026 Painter Pro LLC · Licensed &amp; insured · HIC.0123456</p></footer>
+</body>
+</html>
