@@ -243,6 +243,34 @@ function fingerprint(opts) {
   };
 }
 
+/**
+ * Runs inside the page: double the text of repeated items (3+ siblings that share
+ * tag and class) to mimic long real-world content. Button and nav labels stay as they are.
+ */
+function stressText() {
+  const texts = new Set();
+  for (const el of document.body.querySelectorAll('*')) {
+    if (el.children.length < 3) continue;
+    const sig = (k) => k.tagName + '.' + (k.getAttribute('class') || '');
+    const counts = new Map();
+    for (const k of el.children) counts.set(sig(k), (counts.get(sig(k)) || 0) + 1);
+    for (const k of el.children) {
+      if (counts.get(sig(k)) < 3) continue;
+      const walker = document.createTreeWalker(k, NodeFilter.SHOW_TEXT);
+      for (let t; (t = walker.nextNode());) texts.add(t);
+    }
+  }
+  let n = 0;
+  for (const t of texts) {
+    const s = t.textContent.trim();
+    if (!/\p{L}/u.test(s)) continue;
+    if (t.parentElement.closest('button, [role="button"], nav, script, style, template, noscript, svg')) continue;
+    t.textContent = t.textContent + ' ' + s;
+    n++;
+  }
+  return n;
+}
+
 /** Runs inside the page: list media-query condition texts it can read. */
 function mediaConditions() {
   const out = [], blocked = [];
@@ -263,4 +291,4 @@ function mediaConditions() {
   return { out, blocked };
 }
 
-module.exports = { fingerprint, mediaConditions };
+module.exports = { fingerprint, stressText, mediaConditions };

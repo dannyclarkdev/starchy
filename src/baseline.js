@@ -8,23 +8,33 @@
 function compareBaseline(result, base) {
   const newChanges = [], goneChanges = [], newProblems = [], fixedProblems = [];
   const sig = (c) => [...c.regrouped.map((x) => x.path), ...c.hidden, ...c.shown].sort().join('|');
+  const basePages = base.pages || [{ url: base.url, runs: base.runs }]; // 0.1.x baselines are single-page
 
-  for (const run of result.runs) {
-    const b = (base.runs || []).find((r) => r.height === run.height);
-    if (!b) continue;
-    const cur = run.transitions.map((t) => ({
-      at: t.hi, category: t.diff.category,
-      sig: sig({ regrouped: t.diff.regrouped, hidden: t.diff.hidden.map((x) => x.path), shown: t.diff.shown.map((x) => x.path) }),
-    }));
-    const old = b.changes.map((c) => ({ at: c.at, category: c.category, sig: sig(c) }));
-    const match = (x, list) => list.some((y) => Math.abs(y.at - x.at) <= 4 && y.sig === x.sig);
-    for (const x of cur) if (x.sig && !match(x, old)) newChanges.push({ height: run.height, ...x });
-    for (const x of old) if (x.sig && !match(x, cur)) goneChanges.push({ height: run.height, ...x });
+  const norm = (u) => { try { return new URL(u).href; } catch (e) { return u; } }; // "x.com" === "x.com/"
 
-    const oldKeys = new Set(b.problems.map((p) => p.key));
-    const curKeys = new Set(run.ranges.map((r) => r.issue.key));
-    for (const r of run.ranges) if (!oldKeys.has(r.issue.key)) newProblems.push({ height: run.height, kind: r.issue.kind, labels: r.issue.labels, from: r.from, to: r.to });
-    for (const p of b.problems) if (!curKeys.has(p.key)) fixedProblems.push({ height: run.height, ...p });
+  for (const page of result.pages) {
+    // one page against one page matches even when the URL differs (e.g. staging vs. local)
+    const bp = basePages.find((p) => norm(p.url) === norm(page.url))
+      || (basePages.length === 1 && result.pages.length === 1 ? basePages[0] : null);
+    if (!bp) continue;
+    const url = page.url;
+    for (const run of page.runs) {
+      const b = (bp.runs || []).find((r) => r.height === run.height);
+      if (!b) continue;
+      const cur = run.transitions.map((t) => ({
+        at: t.hi, category: t.diff.category,
+        sig: sig({ regrouped: t.diff.regrouped, hidden: t.diff.hidden.map((x) => x.path), shown: t.diff.shown.map((x) => x.path) }),
+      }));
+      const old = b.changes.map((c) => ({ at: c.at, category: c.category, sig: sig(c) }));
+      const match = (x, list) => list.some((y) => Math.abs(y.at - x.at) <= 4 && y.sig === x.sig);
+      for (const x of cur) if (x.sig && !match(x, old)) newChanges.push({ url, height: run.height, ...x });
+      for (const x of old) if (x.sig && !match(x, cur)) goneChanges.push({ url, height: run.height, ...x });
+
+      const oldKeys = new Set(b.problems.map((p) => p.key));
+      const curKeys = new Set(run.ranges.map((r) => r.issue.key));
+      for (const r of run.ranges) if (!oldKeys.has(r.issue.key)) newProblems.push({ url, height: run.height, kind: r.issue.kind, labels: r.issue.labels, from: r.from, to: r.to });
+      for (const p of b.problems) if (!curKeys.has(p.key)) fixedProblems.push({ url, height: run.height, ...p });
+    }
   }
   return { baselineDate: base.generated, newChanges, goneChanges, newProblems, fixedProblems };
 }

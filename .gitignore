@@ -3,3 +3,5 @@ starchy-report/
 test-report/
 *.log
 .DS_Store
+auth.json
+*.storage.json

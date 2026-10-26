@@ -108,6 +108,35 @@ function issueRanges(first, transitions, min, last) {
   return done.sort((a, b) => rank[a.issue.kind] - rank[b.issue.kind] || b.from - a.from);
 }
 
+/** Merge problems that differ only by which repeated element they hit, e.g. 7 identical tiny labels. */
+function groupRanges(ranges) {
+  const groups = new Map();
+  for (const r of ranges) {
+    const k = [r.issue.kind, r.issue.labels.join('|'), r.issue.detail, r.from, r.to].join('#');
+    const g = groups.get(k);
+    if (g) { g.count++; g.keys.push(r.issue.key); g.paths.push(...r.issue.paths); }
+    else groups.set(k, { kind: r.issue.kind, labels: r.issue.labels, detail: r.issue.detail, from: r.from, to: r.to, count: 1, keys: [r.issue.key], paths: [...r.issue.paths] });
+  }
+  // the range is part of the id: one element can have the same problem over two separate ranges
+  for (const g of groups.values()) g.id = `${g.kind}|${g.from}-${g.to}|${g.keys.slice().sort().join(',')}`;
+  return [...groups.values()];
+}
+
+/** Every distinct problem group across pages, with the pages it was seen on (shared header, footer…). */
+function uniqueProblems(pages) {
+  const seen = new Map();
+  for (const p of pages) {
+    for (const r of p.runs) {
+      for (const g of r.problems) {
+        const k = r.height + '#' + g.id;
+        if (!seen.has(k)) seen.set(k, { ...g, height: r.height, urls: [] });
+        seen.get(k).urls.push(p.url);
+      }
+    }
+  }
+  return [...seen.values()];
+}
+
 const describeSig = (s) => {
   const parts = s.split('+').map(Number);
   const rows = parts.length, max = Math.max(...parts);
@@ -116,4 +145,4 @@ const describeSig = (s) => {
   return `${rows} rows, up to ${max} across`;
 };
 
-module.exports = { keyOf, parseBreakpoints, diffStates, issueRanges, describeSig, roots };
+module.exports = { keyOf, parseBreakpoints, diffStates, issueRanges, groupRanges, uniqueProblems, describeSig, roots };

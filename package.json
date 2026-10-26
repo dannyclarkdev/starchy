@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node cli.js test/fixture.html --out test-report"
+    "test": "node --test test/starchy.test.js"
   },
   "keywords": [
     "responsive",

@@ -16,6 +16,9 @@
    *  [problem]    .cta has overflow:hidden + nowrap → text gets clipped
    *  [problem]    footer text uses vw sizing → drops below 12px
    *  [problem]    header .book link has no nowrap → label breaks onto 2 lines
+   *  [problem]    three .tags labels use 11px text → one grouped "tiny text ×3" row
+   *  [stress]     .menu rows are nowrap in a fixed 220px box → fit with these names,
+   *               escape the box once --stress doubles them
    */
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #222; }
@@ -45,6 +48,10 @@
 
   .cta { display: block; width: 42%; padding: 12px 16px; background: #2b8a3e; color: #fff; border: 0; border-radius: 6px;
          font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .tags span { display: inline-block; font-size: 11px; margin-right: 8px; } /* inline text isn't checked, see README */
+  .menu { width: 220px; margin: 24px 0; }
+  .menu .row { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
 
   footer { padding: 24px; background: #f1f3f5; }
   footer p { font-size: clamp(9px, 1.2vw, 14px); margin: 0; }
@@ -84,6 +91,14 @@
         <div class="card"><h3>Room</h3><p>From $450</p></div>
         <div class="card"><h3>Whole interior</h3><p>From $3,800</p></div>
         <div class="card"><h3>Exterior</h3><p>From $5,500</p></div>
+      </div>
+
+      <div class="tags"><span>Licensed</span><span>Insured</span><span>Local</span></div>
+
+      <div class="menu">
+        <div class="row"><span>Country sourdough</span><span>$9</span></div>
+        <div class="row"><span>Seeded rye</span><span>$8</span></div>
+        <div class="row"><span>Spelt loaf</span><span>$8</span></div>
       </div>
 
       <button class="cta">Get your free painting estimate today</button>
