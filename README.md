@@ -6,7 +6,7 @@
 
 **Keep your layout crisp at every width.**
 
-starchy finds every screen width where your page's layout actually changes, and
+starchy finds every screen width where your page's layout changes, and
 flags the changes that are bugs.
 
 ```bash
@@ -21,7 +21,7 @@ Website: [starchy.dev](https://starchy.dev)
 
 Most responsive testing screenshots a handful of fixed breakpoints, such as 375,
 768 and 1440, so a bug that only appears at 912px goes unnoticed. starchy sweeps
-the whole range, and the page itself shows where its layout shifts. You get the
+the whole range and records where the layout shifts. You get the
 exact pixel, the element, and whether the change was on purpose.
 
 ## Quick start
@@ -150,8 +150,8 @@ starchy https://staging.example.com --out baseline
 starchy https://staging.example.com --baseline baseline/fingerprint.json --fail-on new
 ```
 
-The comparison is structural, not pixel-based, so it doesn't suffer the
-font-rendering noise that makes screenshot diffs flaky. The report lists new
+The comparison looks at how elements sit in rows and boxes, so the
+font-rendering noise that makes screenshot diffs flaky does not affect it. The report lists new
 problems, fixed problems, and layout changes that appeared or disappeared.
 
 Pages are matched by URL (`example.com` and `example.com/` are the same page).

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>starchy — find the layout bugs between your breakpoints</title>
+<title>starchy: find the layout bugs between your breakpoints</title>
 <meta name="description" content="starchy sweeps your page across every width, finds the exact pixel where the layout changes, and flags the changes that are bugs. Open-source CLI for responsive layout testing.">
 <meta property="og:title" content="starchy">
 <meta property="og:description" content="Find the layout bugs between your breakpoints. Open-source CLI.">
@@ -66,7 +66,7 @@ h1 span{color:var(--ink-3)}
 .btn.primary:hover{background:#fff}
 .btn:not(.primary):hover{background:var(--panel-2)}
 .install{display:inline-flex;align-items:center;height:44px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel);font:400 14px/1 var(--mono);max-width:100%;overflow:hidden}
-.install code{padding:0 4px 0 14px;white-space:nowrap;overflow:auto}
+.install code{padding:0 12px 0 14px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .install code::before{content:"$ ";color:var(--ink-3)}
 .copy{flex:none;height:100%;padding:0 14px;background:transparent;border:0;border-left:1px solid var(--line-2);color:var(--ink-2);font:500 12px/1 var(--mono);cursor:pointer}
 .copy:hover{color:var(--ink);background:var(--panel-2)}
@@ -246,7 +246,7 @@ footer a:hover{color:var(--ink)}
   <div class="rule"><div class="shell">
     <section class="sec pad" aria-labelledby="out-h">
       <p class="eyebrow">Output</p>
-      <h2 id="out-h">One command. Every width. A report you can act on.</h2>
+      <h2 id="out-h">What a run looks like</h2>
       <p class="sub">Screenshots at 375, 768 and 1440 miss the bug that only shows at 912px. starchy checks the whole range and gives you the exact pixel, the element, and whether the change was on purpose.</p>
       <div class="split">
         <div class="term">
@@ -297,8 +297,8 @@ footer a:hover{color:var(--ink)}
   <div class="rule" id="how"><div class="shell">
     <section class="sec pad" aria-labelledby="how-h">
       <p class="eyebrow">How it works</p>
-      <h2 id="how-h">A structural sweep, not a screenshot diff</h2>
-      <p class="sub">starchy drives headless Chromium through Playwright. It compares layout structure, not pixels, so font rendering noise cannot make it flaky.</p>
+      <h2 id="how-h">Sweep, bisect, classify</h2>
+      <p class="sub">starchy drives headless Chromium through Playwright. It compares how elements sit in rows and boxes, so font rendering noise cannot make it flaky.</p>
       <ol class="steps">
         <li><h3>Fingerprint</h3><p>Load at 1920px. Record how each container's children sit in rows, e.g. <code>3+3+1</code>, what is visible, and any problems.</p></li>
         <li><h3>Sweep</h3><p>Step down 8px at a time. When the fingerprint changes, binary-search to the exact pixel.</p></li>
@@ -317,7 +317,7 @@ footer a:hover{color:var(--ink)}
   <div class="rule" id="ci"><div class="shell">
     <section class="sec pad ci" aria-labelledby="ci-h">
       <p class="eyebrow">CI</p>
-      <h2 id="ci-h">Fail the pull request, not the launch</h2>
+      <h2 id="ci-h">Run it on every pull request</h2>
       <p class="sub">Run starchy once on a known-good build and commit its <code>fingerprint.json</code>. On every pull request, compare against it.</p>
       <div class="split">
         <div class="term">
