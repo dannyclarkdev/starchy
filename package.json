@@ -1,6 +1,6 @@
 {
   "name": "starchy",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Keep your layout crisp at every width. Finds every screen width where a page's layout changes, and flags the ones that are bugs.",
   "homepage": "https://starchy.dev",
   "repository": {
