@@ -177,6 +177,14 @@ describe('arguments', () => {
     const r = await cli(['x.com', '--min', '2000']);
     assert.equal(r.code, 2);
   });
+  test('--origin with a path, or without a sitemap, exits 2', async () => {
+    const withPath = await cli(['x.com/sitemap.xml', '--origin', 'http://localhost:3000/shop']);
+    assert.equal(withPath.code, 2);
+    assert.match(withPath.stderr, /--origin takes a scheme, host and port only/);
+    const noSitemap = await cli(['x.com', '--origin', 'localhost:3000']);
+    assert.equal(noSitemap.code, 2);
+    assert.match(noSitemap.stderr, /--origin only changes the pages a sitemap lists/);
+  });
 });
 
 // ---------- end to end ----------
@@ -205,6 +213,8 @@ describe('end to end', { concurrency: true }, () => {
           res.writeHead(302, { location: '/login' }); return res.end();
         case '/sitemap.xml': return send(200, sitemap(['/', '/about', '/missing', '/private'], 'urlset'), 'application/xml');
         case '/sitemap-index.xml': return send(200, sitemap(['/sitemap.xml'], 'sitemapindex'), 'application/xml');
+        // a production sitemap served by a dev server
+        case '/prod-sitemap.xml': return send(200, '<?xml version="1.0"?><urlset><url><loc>https://bakery.invalid/</loc></url><url><loc>https://bakery.invalid/about</loc></url></urlset>', 'application/xml');
         default: return send(404, 'not found');
       }
     });
@@ -384,6 +394,27 @@ describe('end to end', { concurrency: true }, () => {
     const page = fp('private').pages[0];
     assert.equal(page.redirectedTo, null);
     assert.equal(find(page.runs[0].problems, 'link-wrapped', 'a.book').length, 1, 'checked the real page, not the login page');
+  });
+
+  test('a sitemap file on disk is read, and its relative entries resolve next to it', async () => {
+    const dir = path.join(OUT, 'local-sitemap');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(__dirname, 'fixture-about.html'), path.join(dir, 'about.html'));
+    fs.writeFileSync(path.join(dir, 'sitemap.xml'), '<?xml version="1.0"?><urlset><url><loc>about.html</loc></url></urlset>');
+    const r = await cli([path.join(dir, 'sitemap.xml'), '--max', '1100', '--no-screenshots', '--no-overview', '--out', path.join(dir, 'out')]);
+    assert.equal(r.code, 0, r.stderr);
+    const f = JSON.parse(fs.readFileSync(path.join(dir, 'out', 'fingerprint.json'), 'utf8'));
+    assert.deepEqual(f.pages.map((p) => p.url), ['file://' + path.join(dir, 'about.html')]);
+  });
+
+  test('--origin checks the pages of a production sitemap on the dev server; without it, starchy warns', async () => {
+    const r = await cli([base + '/prod-sitemap.xml', '--origin', base, '--max', '1100', '--no-screenshots', '--no-overview', '--out', path.join(OUT, 'origin')]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.deepEqual(fp('origin').pages.map((p) => p.url), [base + '/', base + '/about']);
+    assert.doesNotMatch(r.stderr, /warning: the sitemap/);
+
+    const plain = await cli([base + '/prod-sitemap.xml', '--max', '1100', '--no-screenshots', '--no-overview', '--out', path.join(OUT, 'no-origin')]);
+    assert.match(plain.stderr, new RegExp(`warning: the sitemap at ${base} lists pages on https://bakery.invalid; add --origin ${base}`));
   });
 
   test('a missing sitemap fails with a clear error', async () => {

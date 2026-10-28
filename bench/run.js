@@ -6,6 +6,8 @@
 //                          [--models sonnet,opus] [--arms starchy,control] [--trials 3]
 //                          [--concurrency 2] [--budget 5] [--timeout-min 30] [--only <run-id>,...]
 //                          [--starchy-tgz <npm pack file>]   (starchy arm uses this build instead of the npm release)
+//                          [--prompt simple]   (one-line prompts instead of the full task description)
+//                          [--setup pkg|pkg-md]   (starchy arm: a package.json with a check:layout script, and a CLAUDE.md note)
 // Each run gets a fresh temp copy of the site (outside this repo, so the path
 // doesn't name the tool or lead to the answer key) and one headless Claude Code
 // session on the logged-in subscription, with user settings, hooks and MCP off.
@@ -27,6 +29,12 @@ const PROMPTS = {
     starchy: ' The starchy CLI is available for this: `npx starchy <files or URLs>` checks pages at every width from 1920px to 320px and reports layout changes and problems (`npx starchy --help` lists the options).',
   },
 };
+// --prompt simple: the short request a person would type, with no hints about the site or the rules
+const SIMPLE = { control: 'Fix styling issues at all screen sizes.', starchy: 'Use starchy to fix styling issues at all screen sizes.' };
+// --setup: project files the starchy arm starts with, as a real project would have them
+const PKG = '{\n  "private": true,\n  "scripts": {\n    "check:layout": "starchy *.html"\n  },\n  "devDependencies": {\n    "starchy": "^0.4.0"\n  }\n}\n';
+const NOTE = "Run `npm run check:layout` after any CSS change. It checks every page at every width from 1920px to 320px. It doesn't judge images, crops or colors, so also look at the screenshots it saves in `starchy-report/overview/`.\n";
+const SETUPS = { none: {}, pkg: { 'package.json': PKG }, 'pkg-md': { 'package.json': PKG, 'CLAUDE.md': NOTE } };
 // tools that reach other sessions or schedule work outside the run
 const BLOCKED = ['SendMessage', 'ListAgents', 'Workflow', 'RemoteTrigger', 'CronCreate', 'CronDelete', 'CronList', 'ScheduleWakeup', 'PushNotification'];
 
@@ -35,6 +43,7 @@ const models = (args.models || 'sonnet,opus').split(',');
 const arms = (args.arms || 'starchy,control').split(',');
 const trials = +(args.trials || 3), concurrency = +(args.concurrency || 2), budget = +(args.budget || 5), timeoutMin = +(args['timeout-min'] || 30);
 const BENCH = args.bench || 'single';
+if (!SETUPS[args.setup || 'none']) { console.error(`Unknown --setup ${args.setup}`); process.exit(2); }
 const BASE = path.join(__dirname, BENCH);
 const { grade } = require(path.join(BASE, 'grade'));
 const RESULTS = path.join(BASE, args.results || 'results');
@@ -49,6 +58,7 @@ async function one(run) {
   fs.mkdirSync(dir, { recursive: true });
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'site-'));
   fs.cpSync(path.join(BASE, 'site'), ws, { recursive: true });
+  if (run.arm === 'starchy') for (const [file, text] of Object.entries(SETUPS[args.setup || 'none'])) fs.writeFileSync(path.join(ws, file), text);
   execFileSync('git', ['init', '-q'], { cwd: ws });
   execFileSync('git', ['-c', 'user.name=bench', '-c', 'user.email=bench@example.com', 'commit', '-qam', 'start', '--allow-empty'], { cwd: ws });
   execFileSync('git', ['add', '-A'], { cwd: ws });
@@ -59,7 +69,8 @@ async function one(run) {
     execFileSync('npm', ['install', '--no-save', '--silent', '--no-audit', '--no-fund', path.resolve(args['starchy-tgz'])], { cwd: ws });
     fs.appendFileSync(path.join(ws, '.git', 'info', 'exclude'), 'node_modules/\n');
   }
-  const prompt = PROMPTS[BENCH].task + (run.arm === 'starchy' ? PROMPTS[BENCH].starchy : '');
+  const prompt = args.prompt === 'simple' ? SIMPLE[run.arm] : PROMPTS[BENCH].task + (run.arm === 'starchy' ? PROMPTS[BENCH].starchy : '');
+  fs.writeFileSync(path.join(dir, 'prompt.txt'), prompt + '\n');
   const cmd = ['-p', prompt, '--model', MODELS[run.model], '--setting-sources', 'project', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
     '--output-format', 'stream-json', '--verbose', '--max-budget-usd', String(budget), '--permission-mode', 'bypassPermissions', '--disallowedTools', ...BLOCKED];
   const transcript = fs.createWriteStream(path.join(dir, 'transcript.jsonl'));
@@ -90,7 +101,7 @@ async function one(run) {
     designFailures: Object.entries(graded.design).filter(([, ok]) => !ok).map(([k]) => k),
     costUsd: result.total_cost_usd, minutes: Math.round((Date.now() - started) / 6000) / 10, turns: result.num_turns,
     stopReason: result.subtype, toolCalls: toolUses.length,
-    starchyCalls: inputs.filter((s) => /starchy/i.test(s)).length,
+    starchyCalls: inputs.filter((s) => /starchy|check:layout/i.test(s)).length,
     // anything that reaches back into this repo (the answer key lives here)
     outsideReads: inputs.filter((s) => s.includes(path.dirname(__dirname))).length,
     tokens: tokensOf(dir),

@@ -32,6 +32,7 @@ Usage: starchy <url-or-file>... [options]
        starchy ./index.html --min 360 --heights 900,600
        starchy example.com example.com/about     (several pages, one report)
        starchy https://example.com/sitemap.xml   (every page in the sitemap)
+       starchy *.html                            (every page in this folder)
 
   --max <px>          widest width to test             (default 1920)
   --min <px>          narrowest width to test          (default 320)
@@ -54,6 +55,8 @@ Usage: starchy <url-or-file>... [options]
   --short             print only the problems and the summary
   --workers <n>       pages to sweep at once (default: from CPU cores and memory,
                       at most 8, or 4 for remote URLs). 1 sweeps on one page.
+  --origin <url>      check the pages a sitemap lists on this origin instead,
+                      e.g. a dev server: --origin http://localhost:3000
 `;
 
 function parseArgs(argv) {
@@ -85,6 +88,7 @@ function parseArgs(argv) {
       case '--storage-state': o.storageState = next(); break;
       case '--short': o.short = true; break;
       case '--workers': o.workers = Math.max(1, parseInt(next(), 10) || 1); break;
+      case '--origin': o.origin = next(); break;
       default:
         if (a.startsWith('--')) { console.error('Unknown option ' + a); process.exit(2); }
         o.urls.push(toUrl(a));
@@ -93,6 +97,13 @@ function parseArgs(argv) {
   if (!o.urls.length) { console.log(HELP); process.exit(2); }
   if (o.min >= o.max) { console.error('--min must be below --max'); process.exit(2); }
   if (o.storageState && !fs.existsSync(o.storageState)) { console.error(`Storage state file not found: ${o.storageState}`); process.exit(2); }
+  if (o.origin) {
+    let x;
+    try { x = new URL(/^[a-z]+:\/\//i.test(o.origin) ? o.origin : (/^(localhost|127\.)/i.test(o.origin) ? 'http://' : 'https://') + o.origin); } catch { x = null; }
+    if (!x || !/^https?:$/.test(x.protocol) || x.pathname !== '/' || x.search) { console.error(`--origin takes a scheme, host and port only, e.g. http://localhost:3000 (got ${o.origin})`); process.exit(2); }
+    if (!o.urls.some((u) => /\.xml$/i.test(new URL(u).pathname))) { console.error('--origin only changes the pages a sitemap lists; pass a sitemap (*.xml) too'); process.exit(2); }
+    o.origin = x.origin;
+  }
   return o;
 }
 
@@ -107,17 +118,33 @@ function toUrl(a) {
   process.exit(2);
 }
 
-/** Replace each sitemap URL (*.xml) with the pages it lists; follows sitemap index files. */
-async function expandSitemaps(context, urls) {
+/**
+ * Replace each sitemap URL (*.xml) with the pages it lists; follows sitemap index files.
+ * With an origin, http(s) entries move to it, so a production sitemap checks a dev server.
+ */
+async function expandSitemaps(context, urls, origin, warned = new Set()) {
   const out = [];
   for (const u of urls) {
     if (!/\.xml$/i.test(new URL(u).pathname)) { out.push(u); continue; }
-    const res = await context.request.get(u);
-    if (!res.ok()) throw new Error(`Could not read sitemap ${u}: HTTP ${res.status()}`);
-    const xml = await res.text();
-    const locs = Array.from(xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi), (m) => m[1].replace(/&amp;/g, '&'));
+    let xml;
+    if (u.startsWith('file:')) xml = fs.readFileSync(new URL(u), 'utf8');
+    else {
+      const res = await context.request.get(u);
+      if (!res.ok()) throw new Error(`Could not read sitemap ${u}: HTTP ${res.status()}`);
+      xml = await res.text();
+    }
+    const locs = Array.from(xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi), (m) => {
+      const loc = new URL(m[1].replace(/&amp;/g, '&'), u); // relative entries resolve against the sitemap
+      if (!origin || !/^https?:$/.test(loc.protocol)) return loc.href;
+      return origin + loc.pathname + loc.search + loc.hash;
+    });
     if (!locs.length) throw new Error(`No <loc> entries in sitemap ${u}`);
-    out.push(...(/<sitemapindex/i.test(xml) ? await expandSitemaps(context, locs) : locs));
+    const elsewhere = /^https?:/.test(u) && !origin && locs.map((l) => new URL(l)).find((l) => /^https?:$/.test(l.protocol) && l.origin !== new URL(u).origin);
+    if (elsewhere && !warned.has(elsewhere.origin)) {
+      warned.add(elsewhere.origin);
+      console.warn(`  warning: the sitemap at ${new URL(u).origin} lists pages on ${elsewhere.origin}; add --origin ${new URL(u).origin} to check them there`);
+    }
+    out.push(...(/<sitemapindex/i.test(xml) ? await expandSitemaps(context, locs, origin, warned) : locs));
   }
   return [...new Set(out)];
 }
@@ -423,7 +450,7 @@ async function main() {
   const browser = await chromium.launch({ args: ['--disable-frame-rate-limit', '--disable-gpu-vsync'] });
   const context = await browser.newContext({ deviceScaleFactor: o.dpr, storageState: o.storageState || undefined });
 
-  const urls = await expandSitemaps(context, o.urls);
+  const urls = await expandSitemaps(context, o.urls, o.origin);
   if (urls.length > 1) console.log(`starchy: ${urls.length} pages`);
   const pages = [], failed = [], shotIds = new Set(), slugs = new Set();
   // images from an earlier run of other pages would look like part of this one

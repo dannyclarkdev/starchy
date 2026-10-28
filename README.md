@@ -134,12 +134,22 @@ starchy example.com                      # https:// is assumed (http:// for loca
 starchy ./index.html --min 360 --heights 900,600
 starchy example.com example.com/about    # several pages, one report
 starchy example.com/sitemap.xml          # every page in the sitemap
+starchy *.html                           # every page in this folder
 ```
 
 ### Several pages
 
-Pass several URLs, or a sitemap (a URL that ends in `.xml`). starchy follows
-sitemap index files. All pages go into one report.
+Pass several URLs or files, or a sitemap (a URL or file that ends in `.xml`).
+starchy follows sitemap index files. All pages go into one report.
+
+A sitemap usually lists production URLs. To check those pages on a dev server
+instead, add `--origin`:
+
+```bash
+starchy localhost:3000/sitemap.xml --origin http://localhost:3000
+```
+
+Without `--origin`, starchy warns when a sitemap lists pages on another origin.
 
 - A problem found on more than one page (usually a shared header or footer) is
   listed once, under "On more than one page".
@@ -169,6 +179,7 @@ sitemap index files. All pages go into one report.
 | `--storage-state` | | A Playwright storage state file, for pages behind a login. See below. |
 | `--short` | | Print only the problems and the summary, without the list of layout changes |
 | `--workers` | auto | Pages to sweep at once. The default comes from your CPU cores and memory: at most 8, or 4 for remote URLs. `1` sweeps on one page. |
+| `--origin` | | Check the pages a sitemap lists on this origin instead, for example `http://localhost:3000`. |
 
 ## In CI
 
@@ -208,6 +219,29 @@ fix changed:
 "now hidden" lists elements that hide at a width where they used to show. A
 problem that goes away because its element was hidden is often not a real fix.
 The comparison only runs when the sweep options are the same as last time.
+
+## With coding agents
+
+Coding agents use starchy best when the project tells them about it. Add it to
+the project with a script:
+
+```bash
+npm install --save-dev starchy
+npm pkg set 'scripts.check:layout=starchy *.html'
+```
+
+For a site with a dev server, use the sitemap instead:
+`starchy localhost:3000/sitemap.xml --origin http://localhost:3000`.
+
+Then add this line to `CLAUDE.md` or `AGENTS.md`:
+
+```
+Run `npm run check:layout` after any CSS change. It checks every page at every width from 1920px to 320px. It doesn't judge images, crops or colors, so also look at the screenshots it saves in `starchy-report/overview/`.
+```
+
+The script lets an agent find starchy. The note tells it what starchy does not
+check, so it does not stop at "0 problems". With both, a one-line prompt is
+enough. [Benchmark](#benchmark) has the numbers.
 
 ## Pages behind a login
 
@@ -296,10 +330,41 @@ Six-page site, 25 bugs (3 held out), starchy 0.4.0, 6 runs per group:
 - With starchy, Opus fixed fewer held-out bugs. The one it missed most is a hero
   photo cropped to an empty background on phones, which needs visual judgment.
 
+### With a one-line prompt
+
+The same site, with the prompt a person would type: "Fix styling issues at all
+screen sizes", or "Use starchy to fix styling issues at all screen sizes". The
+starchy runs had three setups: starchy installed with no other trace, the
+`package.json` script, and the script plus the agent note from
+[With coding agents](#with-coding-agents). 6 runs per group:
+
+| Model | starchy setup | Found starchy | Bugs fixed | Held-out fixed | Runs with a regression | Cost |
+|---|---|---|---|---|---|---|
+| Sonnet 5.5 | no starchy | | 20.2 / 25 | 11 / 18 | 2 / 6 | $0.12 |
+| Sonnet 5.5 | installed only | 5 / 6 | 21.5 / 25 | 4 / 18 | 0 / 6 | $0.19 |
+| Sonnet 5.5 | script | 6 / 6 | 23.5 / 25 | 11 / 18 | 0 / 6 | $0.17 |
+| Sonnet 5.5 | script and note | 6 / 6 | 23.7 / 25 | 12 / 18 | 0 / 6 | $0.17 |
+| Opus 5.5 | no starchy | | 22.7 / 25 | 18 / 18 | 3 / 6 | $0.62 |
+| Opus 5.5 | installed only | 4 / 6 | 16.5 / 25 | 11 / 18 | 0 / 6 | $0.46 |
+| Opus 5.5 | script | 6 / 6 | 24.5 / 25 | 16 / 18 | 0 / 6 | $0.63 |
+| Opus 5.5 | script and note | 6 / 6 | 25.0 / 25 | 18 / 18 | 0 / 6 | $0.62 |
+
+- With starchy installed but nowhere in the project files, 3 of 12 agents did
+  not find it. They searched for it, then asked what starchy is or fixed the
+  CSS by hand. None tried `npx starchy`.
+- With a one-line prompt, agents trusted "0 problems" more, and fixed fewer
+  held-out bugs. The note fixed this for Opus. Sonnet opened the screenshots in
+  6 of 6 runs with the note (0 of 6 without it), but still missed some
+  held-out bugs.
+- Sonnet without starchy was cheaper because it did less: 0.9 minutes a run,
+  against about 2 with starchy.
+
 Limits: 6 runs per group, on a site built for the test. The summary of every
 round, including earlier ones and a one-page benchmark, is in
 `bench/*/results*/summary.md`. To run it:
-`node bench/run.js --bench multi` (needs a logged-in `claude` CLI).
+`node bench/run.js --bench multi` (needs a logged-in `claude` CLI). Add
+`--prompt simple` for the one-line prompts, and `--setup pkg` or
+`--setup pkg-md` for the starchy setups.
 
 ## Prior art
 
